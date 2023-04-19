@@ -1,6 +1,7 @@
 # DataShell 
 
 <img src="https://i.imgur.com/YmyWF7L.png" width="82" height="95.5">
+
 ### A Peer-to-Peer Prototyping Environment for Web Apps with User-Owned Data Vaults
 
 Moving data to the cloud solved users' early issues with backups and data loss, but today Big Tech companies own most of our data and control how it is used, leaving users vulnerable to privacy violations and data manipulation.
