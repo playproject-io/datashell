@@ -10,4 +10,4 @@ As a response to this unhealthy dependency to the Big Tech, Dat Ecosystem projec
 
 To address this problem, DataShell aims to create a new open standard for user-owned, GDPR compliant data vaults. Furthermore, we aim to provide developers with an open in-browser prototyping environment which they can use (or self-host) to build web apps based on the vault standard in order to create an open resilient app ecosystem that gives users full control, data portability and the ability to self-authenticate, verify data and permissionlessly combine it in new ways. 
 
-> [Read the paper](https://github.com/playproject-io/datashell/paper.md)
+> [Read the paper](https://github.com/playproject-io/datashell/paper/paper.md)
