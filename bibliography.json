@@ -1,0 +1,85 @@
+[
+  {
+    "id":"datwhitepaper",
+    "type":"article",
+    "title":"Dat - Distributed Dataset Synchronization And Versioning",
+    "author": [
+      {
+        "family": "Ogden",
+        "given": "Maxwell"
+      },
+      {
+        "family": "McKelvey",
+        "given": "Karissa"
+      },
+      {
+        "family": "Buus Madsen",
+        "given": "Mathias"
+      },
+      {
+        "literal": "Code for Science"
+      }
+    ],
+    "issued":"2018"
+  },
+  {
+    "id":"trustvault",
+    "type":"article",
+    "title":"TrustVault: A privacy-first data wallet for the European Blockchain Services Infrastructure",
+    "authors": [
+      {
+        "family": "Jacobino",
+        "given": "Sharif"
+      },
+      {
+        "family": "Pouwelse",
+        "given": "Johan"
+      }
+    ],
+    "issued":"2022"  
+  },
+  {
+    "id":"trustworthyproxies",
+    "type":"article",
+    "title":"Trustworthy Proxies: Virtualizing Objects with Invariants",
+    "authors": [
+      {
+        "family": "Van Cutsem",
+        "given": "Tom"
+      },
+      {
+        "family": "Miller",
+        "given": "Mark S."
+      }
+    ],
+    "issued":"2013"  
+  },
+  {
+    "id":"proxiesdesign",
+    "type":"article",
+    "title":"Proxies: Design Principles for Robust Object-oriented Intercession APIs",
+    "authors": [
+      {
+        "family": "Van Cutsem",
+        "given": "Tom"
+      },
+      {
+        "family": "Miller",
+        "given": "Mark S."
+      }
+    ],
+    "issued":"2010"  
+  },
+  {
+    "id":"webappos",
+    "type":"article",
+    "title":"The webAppOS Architecture",
+    "authors": [
+      {
+        "family": "Kozlovics",
+        "given": "Sergejs"
+      }
+    ],
+    "issued":"2019"  
+  }
+]
