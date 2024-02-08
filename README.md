@@ -1,6 +1,6 @@
 # DataShell 
 
-<img src="https://i.imgur.com/YmyWF7L.png" width="82" height="95.5">
+<img src="logo/datashell-logo.png" width="120" height="120">
 
 ### A Peer-to-Peer Prototyping Environment for Web Apps with User-Owned Data Vaults
 
