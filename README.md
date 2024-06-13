@@ -2,9 +2,6 @@
 
 <img src="logo/datashell-logo.png" width="120" height="120">
 
-# demo
-https://serapath.github.io/datashell
-
 ### A Peer-to-Peer Prototyping Environment for Web Apps with User-Owned Data Vaults
 
 Moving data to the cloud solved users' early issues with backups and data loss, but today Big Tech companies own most of our data and control how it is used, leaving users vulnerable to privacy violations and data manipulation.
@@ -14,3 +11,8 @@ As a response to this unhealthy dependency to the Big Tech, Dat Ecosystem projec
 To address this problem, DataShell aims to create a new open standard for user-owned, GDPR compliant data vaults. Furthermore, we aim to provide developers with an open in-browser prototyping environment which they can use (or self-host) to build web apps based on the vault standard in order to create an open resilient app ecosystem that gives users full control, data portability and the ability to self-authenticate, verify data and permissionlessly combine it in new ways. 
 
 > [Read the paper](https://github.com/playproject-io/datashell/blob/main/paper/paper.pdf)
+
+
+# demo
+pre-alpha work in progress
+> [see the demo](https://serapath.github.io/datashell)
