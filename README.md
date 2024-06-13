@@ -12,7 +12,4 @@ To address this problem, DataShell aims to create a new open standard for user-o
 
 > [Read the paper](https://github.com/playproject-io/datashell/blob/main/paper/paper.pdf)
 
-
-# demo
-pre-alpha work in progress
-> [see the demo](https://serapath.github.io/datashell)
+> [See the demo](https://serapath.github.io/datashell) pre-alpha work in progress
