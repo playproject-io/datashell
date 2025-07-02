@@ -101,7 +101,7 @@ globalThis.boot = async (conf_href, system_path = 'bundle.js') => {
       }
       async function patch_cache_in_browser (source_cache, module_cache) {
         let STATE_JS
-        const prefix = 'https://raw.githubusercontent.com/alyhxn/playproject/refs/heads/'
+        const prefix = 'https://raw.githubusercontent.com/playproject-io/datashell/refs/heads/main/'
         const state_url = USE_LOCAL ? user_arg.dev + 'STATE.js' : prefix + pack['STATE']
         const localdb_url = USE_LOCAL ? user_arg.dev + 'localdb.js' : prefix + pack['localdb']
         const io_url = USE_LOCAL ? user_arg.dev + 'io.js' : prefix + pack['io']
