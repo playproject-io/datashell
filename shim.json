@@ -1,0 +1,21 @@
+{
+  "latest": 2,
+  "stable": 1,
+  "versions": {
+    "0": {
+      "STATE": "a31832ad3cb24fe15ab36bdc73a929f43179d7b8/src/node_modules/STATE.js",
+      "localdb": "a31832ad3cb24fe15ab36bdc73a929f43179d7b8/src/node_modules/localdb.js",
+      "io": "a31832ad3cb24fe15ab36bdc73a929f43179d7b8/src/node_modules/io.js"
+    },
+    "1": {
+      "STATE": "main/src/node_modules/STATE.js",
+      "localdb": "main/src/node_modules/localdb.js",
+      "io": "main/src/node_modules/io.js"
+    },
+    "2": {
+      "STATE": "main/src/node_modules/STATE.js",
+      "localdb": "main/src/node_modules/localdb.js",
+      "io": "main/src/node_modules/io.js"
+    }
+  }
+}
