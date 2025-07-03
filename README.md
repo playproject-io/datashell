@@ -23,11 +23,10 @@ To address this problem, DataShell aims to create a new open standard for user-o
    * for available version numbers or labels, check [shim.json](http://playproject.io/datashell/shim.json)
 ```js
 import 'http://playproject.io/datashell/shim.js?version=stable'
-const filepath = 'bundle.js' // 'bundle.js' is the default when just calling boot(import.meta.url)
-boot(import.meta.url, filepath)
+boot(import.meta.url)
 ```
-3. add a `./bundle.js` file or whatever `filepath` you defined in `boot.js` using [browserify](https://www.npmjs.com/package/browserify)
-   * e.g. run `npx browserify your-app.js > bundle.js`
+3. add a `./bundle.js` file using [browserify](https://www.npmjs.com/package/browserify)
+   * e.g. run `npx browserify -i=STATE your-app.js > bundle.js`
 4. open a url to display your `index.html` in a browser
 
 ## api
