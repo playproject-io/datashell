@@ -1,0 +1,27 @@
+{
+  "name": "datashell",
+  "version": "0.0.1-pre-alpha",
+  "description": "datashell command line tool",
+  "main": "bundle.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "ds": "bin/cli.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/playproject-io/datashell.git"
+  },
+  "keywords": ["dat", "datashell", "p2p", "hyperdht", "relay", "portal"],
+  "author": "@serapath",
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/playproject-io/datashell/issues"
+  },
+  "homepage": "https://github.com/playproject-io/datashell#readme"
+}
