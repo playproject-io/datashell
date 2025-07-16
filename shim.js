@@ -59,7 +59,7 @@ globalThis.boot = async (conf_href, system_path = 'bundle.js') => {
     if (parts.length > 1) map = parts.pop()
     if (map && !map.startsWith(mime)) parts.push(map)
     code = parts.join(smap).slice(0, -1)
-    code = `void (async F => {${code.replace(mark, `${mark}(...await (F.bind(${json}, ${text})`)}))})(${init})`
+    code = `void (async F => {${code.replace(mark, `${mark}(...await (F.bind(${json}, ${text}))())`)}})(${init})`
     if (map) code = code + `\n${smap}${mime}${map}`
     return code
     async function init (versions, ...args) {
@@ -101,7 +101,7 @@ globalThis.boot = async (conf_href, system_path = 'bundle.js') => {
       }
       async function patch_cache_in_browser (source_cache, module_cache) {
         let STATE_JS
-        const prefix = 'https://raw.githubusercontent.com/playproject-io/datashell/refs/heads/main/'
+        const prefix = 'https://raw.githubusercontent.com/playproject-io/datashell/refs/heads/'
         const state_url = USE_LOCAL ? user_arg.dev + 'STATE.js' : prefix + pack['STATE']
         const localdb_url = USE_LOCAL ? user_arg.dev + 'localdb.js' : prefix + pack['localdb']
         const io_url = USE_LOCAL ? user_arg.dev + 'io.js' : prefix + pack['io']
