@@ -441,7 +441,6 @@ async function renderer () {
     if (code.endsWith(';')) code = code.slice(0, -1)
     code = `void (async F => {${code}))})(${init})`
     if (map) code = code + `\n${smap}${mime}${map}`
-    console.log({code})
     return code
     async function init (versions, ...args) {
       // const usopen = '00af49'
