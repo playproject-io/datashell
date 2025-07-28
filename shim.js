@@ -430,15 +430,18 @@ async function renderer () {
     WRAP
   ****************************************************************************/
   function wrap (code, config, versions_json, map) {
-    const mark = 'return o}return r})()'
+    var mark = 'return o}return r})()'
     const smap = '//# sourceMappingURL=data:'
     const mime = 'application/json;charset=utf-8;base64,'
     const parts = code.slice(0, -1).split(smap)
     if (parts.length > 1) map = parts.pop()
     if (map && !map.startsWith(mime)) parts.push(map)
     code = parts.join(smap).slice(0, -1)
-    code = `void (async F => {${code.replace(mark, `${mark}(...await (F.bind(${config}, ${versions_json})`)}))})(${init})`
+    code = code.replace(mark, `${mark}(...await (F.bind(${config}, ${versions_json})`)
+    if (code.endsWith(';')) code = code.slice(0, -1)
+    code = `void (async F => {${code}))})(${init})`
     if (map) code = code + `\n${smap}${mime}${map}`
+    console.log({code})
     return code
     async function init (versions, ...args) {
       // const usopen = '00af49'
