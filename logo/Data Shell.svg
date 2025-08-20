@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 328.22 379">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #2aca4b;
+      }
+
+      .cls-2 {
+        letter-spacing: -.04em;
+      }
+
+      .cls-3 {
+        font-family: PTSans-Regular, 'PT Sans';
+      }
+
+      .cls-4 {
+        fill: #fff;
+        font-size: 72px;
+      }
+
+      .cls-5 {
+        font-family: HiraKakuStd-W8-83pv-RKSJ-H, 'Hiragino Kaku Gothic Std';
+      }
+    </style>
+  </defs>
+  <polygon class="cls-1" points="328.22 284.25 328.22 94.75 164.11 0 0 94.75 0 284.25 164.11 379 328.22 284.25"/>
+  <text class="cls-4" transform="translate(65.84 176.35)"><tspan class="cls-5"><tspan x="0" y="0">Data</tspan></tspan><tspan class="cls-3"><tspan x=".21" y="72">SHEL</tspan><tspan class="cls-2" x="162.65" y="72">L</tspan></tspan></text>
+</svg>
