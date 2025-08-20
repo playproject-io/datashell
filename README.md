@@ -35,7 +35,7 @@ ds # prints help
 </html>
 ```
 2. add `./boot.js` and append a version number or label to imported `shim.js` url (see code below)
-   * for available version numbers or labels, check [shim.json](http://playproject.io/datashell/shim.json)
+   * for available version numbers or labels, check [drive.json](http://playproject.io/datashell/drive.json)
 ```js
 const env = { version: 'latest' }
 const arg = { x: 321, y: 543 }
@@ -43,11 +43,10 @@ const url = 'https://playproject.io/datashell/shim.js'
 const src = `${url}?${new URLSearchParams(env)}#${new URLSearchParams(arg)}`
 this.open ? document.body.append(Object.assign(document.createElement('script'), { src })) : importScripts(src)
 ```
-3. add a `./bundle.js` file using [browserify](https://www.npmjs.com/package/browserify)
+3. add a `./bundle.js` file using [browserify](https://www.npmjs.com/package/browserify) in the same folder as `boot.js`
    * e.g. run `npx browserify -i STATE your-app.js -o bundle.js`
 4. open `index.html` in your browser
 
-**Note: `bundle.js` and `boot.js` must be placed in the same folder**
 ### api
 Following the usage steps above, `your-app.js` will have access to the following api:
 #### `const STATE = require('STATE')`
