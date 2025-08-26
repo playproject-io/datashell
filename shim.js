@@ -216,7 +216,6 @@ async function renderer () {
     page_arg: config.page.arg,
     user_env: config.user.env,
     user_arg: config.user.arg,
-    shim_url: config.shim.url.origin
   }
 
   const script = document.createElement('script')
@@ -458,12 +457,12 @@ async function renderer () {
       document.title = '⬢js'
       const {
         pack,
-        shim_env, shim_arg, page_env, page_arg, user_env, user_arg, shim_url
+        shim_env, shim_arg, page_env, page_arg, user_env, user_arg
       } = this
       console.log(`%c⬢js:v${user_arg.version}`, `color: #${color6}`, {
         versions,
         pack,
-        shim_env, shim_arg, page_env, page_arg, user_env, user_arg, shim_url
+        shim_env, shim_arg, page_env, page_arg, user_env, user_arg
       })
       const USE_LOCAL = 'dev' in user_arg
       const HELPER_MODULES = ['io', 'STATE']
@@ -481,7 +480,7 @@ async function renderer () {
       }
       async function patch_cache_in_browser (source_cache, module_cache) {
         let STATE_JS
-        const prefix = shim_url + '/'
+        const prefix = 'https://raw.githubusercontent.com/playproject-io/datashell/'
         const state_url = USE_LOCAL ? user_arg.dev + 'STATE.js' : prefix + pack['STATE']
         const localdb_url = USE_LOCAL ? user_arg.dev + 'localdb.js' : prefix + pack['localdb']
         const io_url = USE_LOCAL ? user_arg.dev + 'io.js' : prefix + pack['io']
