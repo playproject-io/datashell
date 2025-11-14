@@ -20,13 +20,17 @@ To address this problem, DataShell aims to create a new open standard for user-o
 ## usage
 `npm install -g datashell`
 
+---
+
 ### cli
 ```bash
 ds # prints help
 ```
 
-### setup
-1. add `./index.html` and `your-app.js`
+---
+
+### config
+1. add `./index.html`
 ```html
 <!DOCTYPE html>
 <html>
@@ -47,7 +51,15 @@ this.open ? document.body.append(Object.assign(document.createElement('script'),
    * e.g. run `npx browserify -i STATE your-app.js -o bundle.js`
 4. open `index.html` in your browser
 
+---
+
 ### api
+
+#### ⬡js - bootloader
+
+
+#### ⬢js - system
+
 Following the usage steps above, `your-app.js` will have access to the following api:
-#### `const STATE = require('STATE')`
-* see [docs/](https://github.com/playproject-io/datashell/tree/main/docs)
+##### `const STATE = require('STATE')`
+* see [doc/](https://github.com/playproject-io/datashell/tree/main/doc)
