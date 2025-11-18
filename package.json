@@ -2,8 +2,6 @@
   "name": "datashell",
   "version": "0.0.2-pre-alpha",
   "description": "DatAShell command line tool",
-  "main": "bundle.js",
-  "type": "commonjs",
   "directories": {
     "lib": "lib"
   },
@@ -11,7 +9,6 @@
     "start": "npx http-server . -p 9966",
     "shim": "npx http-server . -p 9999",
     "budo": "budo web/page.js:bundle.js --live -- -i STATE",
-    "budo:0": "#budo web/example0/page.js:bundle.js --live -- -i STATE",
     "budo:1": "budo web/example1/page.js:bundle.js --live -- -i STATE -i localdb",
     "budo:2": "budo web/example2/page.js:bundle.js --live -- -i STATE",
     "budo:3": "#budo web/example3/page.js:bundle.js --live -- -i STATE"
@@ -31,7 +28,6 @@
   },
   "homepage": "https://github.com/playproject-io/datashell#readme",
   "devDependencies": {
-    "browserify": "^17.0.1",
     "budo": "^11.8.4",
     "http-server": "^14.1.1"
   }
