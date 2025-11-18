@@ -1,7 +1,7 @@
 const taken = {}
 
 module.exports = io
-function io(seed, alias, callback) {
+function io(seed, alias) {
   if (taken[seed]) throw new Error(`seed "${seed}" already taken`)
   // const pk = seed.slice(0, seed.length / 2)
   // const sk = seed.slice(seed.length / 2, seed.length)
@@ -10,7 +10,6 @@ function io(seed, alias, callback) {
   return io
 
   async function at (id, signal = AbortSignal.timeout(1000)) {
-    callback && callback('Connect', alias)
     if (id === seed) throw new Error('cannot connect to loopback address')
     if (!self.online) throw new Error('network must be online')
     const peer = taken[id] || {}
