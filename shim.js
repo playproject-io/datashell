@@ -438,7 +438,6 @@ async function renderer () {
     if (map && !map.startsWith(mime)) parts.push(map)
     code = parts.join(smap).slice(0, -1)
     code = code.replace(mark, `${mark}(...await (F.bind(${config}, ${versions_json})`)
-    if (code.endsWith(';')) code = code.slice(0, -1)
     code = `void (async F => {${code}))})(${init})`
     if (map) code = code + `\n${smap}${mime}${map}`
     return code
@@ -465,7 +464,7 @@ async function renderer () {
         shim_env, shim_arg, page_env, page_arg, user_env, user_arg
       })
       const USE_LOCAL = 'dev' in user_arg
-      const HELPER_MODULES = ['io', 'STATE']
+      const HELPER_MODULES = ['io', 'localdb', 'STATE'] // @TODO: localdb/io for userland too?
       clear_db_on_file_change()
       const [source_cache, module_cache] = args
       await patch_cache_in_browser(source_cache, module_cache)
@@ -479,12 +478,18 @@ async function renderer () {
         sessionStorage.removeItem('last_item')
       }
       async function patch_cache_in_browser (source_cache, module_cache) {
-        let STATE_JS
         const prefix = 'https://raw.githubusercontent.com/playproject-io/datashell/'
-        const state_url = USE_LOCAL ? user_arg.dev + 'STATE.js' : prefix + pack['STATE']
-        const localdb_url = USE_LOCAL ? user_arg.dev + 'localdb.js' : prefix + pack['localdb']
-        const io_url = USE_LOCAL ? user_arg.dev + 'io.js' : prefix + pack['io']
-        STATE_JS = await Promise.all([
+
+        const dev = user_arg.dev
+        const state_url = new URL(USE_LOCAL ? dev + 'STATE.js' : prefix + pack['STATE'])
+        const localdb_url = new URL(USE_LOCAL ? dev + 'localdb.js' : prefix + pack['localdb'])
+        const io_url = new URL(USE_LOCAL ? dev + 'io.js' : prefix + pack['io'])
+
+//        debugger
+// @TODO: make iframe based cors compatible temporary `STATE` module fetch possible!
+// @TODO: think about whether that makes sense in the long run too or not!
+
+        const [STATE_JS, localdb_js, io_js] = await Promise.all([
           fetch(state_url, { cache: 'no-store' }).then(res => res.text()),
           fetch(localdb_url, { cache: 'no-store' }).then(res => res.text()),
           fetch(io_url, { cache: 'no-store' }).then(res => res.text())
@@ -494,7 +499,7 @@ async function renderer () {
             io: load(io_source)
           }
           const STATE_JS = load(state_source, (dependency) => dependencies[dependency])
-          return STATE_JS
+          return [STATE_JS, dependencies.localdb, dependencies.io]
           function load (source, require) {
             const module = { exports: {} }
             const f = new Function('module', 'require', source)
@@ -522,7 +527,12 @@ async function renderer () {
               if (HELPER_MODULES.some(suffix => name.endsWith(suffix))) {
                 const modulepath = meta.modulepath.join('>')
                 let original_export
-                if (name.endsWith('STATE')) { original_export = STATE_JS } else { original_export = require.cache[identifier] || (require.cache[identifier] = original(name)) }
+                if (name.endsWith('STATE')) original_export = STATE_JS
+                else if (name.endsWith('localdb')) original_export = localdb_js
+                else if (name.endsWith('io')) original_export = io_js
+                else {
+                  original_export = require.cache[identifier] || (require.cache[identifier] = original(name))
+                }
                 const exports = (...args) => original_export(...args, modulepath, Object.keys(dependencies))
                 return exports
               } else {

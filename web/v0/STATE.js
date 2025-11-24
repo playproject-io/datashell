@@ -24,6 +24,7 @@ const status = {
   tree_pointers: {},
   modulepaths: {},
   addresses: {},
+  override_addresses: {},
   inits: [],
   open_branches: {},
   db,
@@ -40,14 +41,13 @@ const status = {
   services: {},
   args: {},
   callbacks: [],
-  root_datasets: [],
   helpers: {
     listify
   }
 }
 window.STATEMODULE = status
 
-//@TODO: Remove file/dataset creation repititions
+
 
 // Symbol mappings
 let admins = [0]
@@ -267,10 +267,10 @@ function STATE (address, modulepath, dependencies) {
     let data = db.read(['state', modulepath])
     if (status.fallback_check) {
       if (data) {
-        var {sanitized_data, updated_status} = preprocess({ fun_status: status, fallback, xtype: 'module', pre_data: data })
+        var {sanitized_data, updated_status} = validate_and_preprocess({ fun_status: status, fallback, xtype: 'module', pre_data: data })
       } 
       else if (status.root_module) {
-        var {sanitized_data, updated_status} = preprocess({ fun_status: status, fallback, xtype: 'module', pre_data: {id: modulepath}})
+        var {sanitized_data, updated_status} = validate_and_preprocess({ fun_status: status, fallback, xtype: 'module', pre_data: {id: modulepath}})
       } 
       else {
         var {sanitized_data, updated_status, updated_local_status} = find_super({ xtype: 'module', fallback, fun_status:status, local_status })
@@ -298,7 +298,7 @@ function STATE (address, modulepath, dependencies) {
       if (!data && !status.root_instance) {
         ({sanitized_data, updated_status} = find_super({ xtype: 'instance', fallback, fun_status: status }))
       } else {
-        ({sanitized_data, updated_status} = preprocess({
+        ({sanitized_data, updated_status} = validate_and_preprocess({
           fun_status: status,
           fallback, 
           xtype: 'instance',
@@ -388,13 +388,13 @@ function STATE (address, modulepath, dependencies) {
     }
     data.name = split.at(-1)
     return { updated_local_status: local_status,
-      ...preprocess({ 
+      ...validate_and_preprocess({ 
       fun_status,
       fallback, xtype, 
       pre_data: data, 
       orphan_check: true, entries }) }
   }
-  function preprocess ({ fallback, xtype, pre_data = {}, orphan_check, fun_status, entries }) {
+  function validate_and_preprocess ({ fallback, xtype, pre_data = {}, orphan_check, fun_status, entries }) {
     const used_keys = new Set()
     let {id: pre_id, hubs: pre_hubs, mapping} = pre_data
     const fallback_args = [status.args[pre_id], { listify: tree => listify(tree, modulepath), tree: status.tree_pointers[modulepath] }]
@@ -406,17 +406,20 @@ function STATE (address, modulepath, dependencies) {
     }
     const overrides = fun_status.overrides[pre_id]
     if(overrides){
-      // console.log('Before: ', JSON.parse(JSON.stringify(fallback_data)))
+      console.log('Before: ', JSON.parse(JSON.stringify(fallback_data)))
       const override = overrides.fun.shift()
       fallback_data = override(...fallback_args, get_fallbacks({ fallback_data, overrides: overrides.fun, modulepath, instance_path: pre_id }))
-      // console.log('After: ', JSON.parse(JSON.stringify(fallback_data)))
+      console.log('After: ', JSON.parse(JSON.stringify(fallback_data)))
       console.log('Override used: ', pre_id, overrides.by, )
+      if(!status.override_addresses[modulepath])
+        status.override_addresses[modulepath] = []
+      status.override_addresses[modulepath].push(status.addresses[overrides.by.at(-1).split(':')[0]])
       overrides.by.splice(0, 1)
       overrides.fun.splice(0, 1)
     }
     
     // console.log('fallback_data: ', fallback)
-    fun_status.overrides = register_overrides({ overrides: fun_status.overrides, tree: fallback_data, path: modulepath, id: pre_id, address })
+    fun_status.overrides = register_overrides({ overrides: fun_status.overrides, tree: fallback_data, path: modulepath, id: pre_id })
     console.log('overrides: ', Object.keys(fun_status.overrides))
     orphan_check && (fallback_data.orphan = orphan_check)
     //This function makes changes in fun_status (side effect)
@@ -481,7 +484,18 @@ function STATE (address, modulepath, dependencies) {
       const entries = {}
       if (!local_id) {
         entry.subs = []
-
+        if(entry._){
+          //@TODO refactor when fallback structure improves
+          Object.entries(entry._).forEach(([local_id, value]) => {
+            Object.entries(value).forEach(([key, override]) => {
+              if(key === 'mapping' || (key === '$' && xtype === 'instance'))
+                return
+              const sub_instance = sanitize_state({ local_id, entry: value, path, hub_entry: entry, local_tree, xtype: key === '$' ? 'module' : 'instance', mapping: value['mapping'], xkey: key }).entry
+              entries[sub_instance.id] = JSON.parse(JSON.stringify(sub_instance))
+              entry.subs.push(sub_instance.id)
+              used_keys.add(sub_instance.id)
+            })
+        })}
         if (entry.drive) {
           // entry.drive.theme && (entry.theme = entry.drive.theme)
           // entry.drive.lang && (entry.lang = entry.drive.lang)
@@ -496,13 +510,13 @@ function STATE (address, modulepath, dependencies) {
             }
             dataset_type = dataset_type.split('/')[0]
 
-            const new_dataset = { files: [], mapping: {}, name: 'default' }
+            const new_dataset = { files: [], mapping: {} }
             Object.entries(dataset).forEach(([key, value]) => {
               new_dataset.files.push(append_file(key, value, entry, entries))
             })
-            new_dataset.id = entry.id + '.default.' + dataset_type + '.dataset'
+            new_dataset.id = entry.id + '.' + dataset_type + '.dataset'
             Object.assign(new_dataset, fill_dataset(new_dataset, dataset_type))
-            activate_dataset(new_dataset, dataset_type)
+            activate_dataset(new_dataset)
             new_drive.push(new_dataset.id)
 
           })
@@ -512,7 +526,7 @@ function STATE (address, modulepath, dependencies) {
               const new_dataset = map_drive[dataset_type] || (map_drive[dataset_type] = { files: [], mapping: {}, name: 'default' })
               
               if(!new_dataset.id){
-                new_dataset.id = entry.id + '.default.' + dataset_type + '.dataset'
+                new_dataset.id = entry.id + '.' + dataset_type + '.dataset'
                 if(new_drive.includes(new_dataset.id)){
                   console.warn(`Both JSON and path definitions used for dataset "${dataset_type}" in the drive of "${entry.id}"`)
                   return
@@ -520,29 +534,12 @@ function STATE (address, modulepath, dependencies) {
                 Object.assign(new_dataset, fill_dataset(new_dataset, dataset_type))
               }
               new_dataset.files.push(append_file(file_name, value, entry, entries))
-              activate_dataset(new_dataset, dataset_type)
+              activate_dataset(new_dataset)
             })
             new_drive.push(...Object.values(map_drive).map(dataset => dataset.id))
           }
           entry.drive = new_drive
         }
-        else
-          entry.drive = []
-
-        if(entry._){
-          //@TODO refactor when fallback structure improves
-          Object.entries(entry._).forEach(([local_id, value]) => {
-            value.mapping = sanitize_mapping(value.mapping, mapping)
-            Object.entries(value).forEach(([key, override]) => {
-              if(key === 'mapping' || (key === '$' && xtype === 'instance'))
-                return
-              const sub_instance = sanitize_state({ local_id, entry: value, path, hub_entry: entry, local_tree, xtype: key === '$' ? 'module' : 'instance', mapping: value['mapping'], xkey: key }).entry
-              entries[sub_instance.id] = JSON.parse(JSON.stringify(sub_instance))
-              entry.subs.push(sub_instance.id)
-              used_keys.add(sub_instance.id)
-            })
-        })}
-
       }
       return entries
 
@@ -552,13 +549,11 @@ function STATE (address, modulepath, dependencies) {
         return sanitized_file.id
       }
       function fill_dataset (dataset, dataset_type) {
-        dataset.type = mapping?.[dataset_type] || dataset_type
-        dataset.xtype = dataset_type
+        dataset.type = dataset_type
         dataset.id = db.gen_id(dataset.id)
-        dataset.node_id = entry.id
         entries[dataset.id] = dataset
       }
-      function activate_dataset (dataset, dataset_type) {
+      function activate_dataset (dataset) {
         let check_name = true
         entry.inputs.forEach(dataset_id => {
           const ds = entries[dataset_id]
@@ -567,14 +562,12 @@ function STATE (address, modulepath, dependencies) {
         })
         check_name && entry.inputs.push(dataset.id)
 
-        if(status.root_module)
-          fun_status.root_datasets.push(dataset.type)
-        else {
+        if(!status.root_module){
           const hub_entry = db.read(['state', entry.hubs[0]])
           if(!hub_entry.inputs)
             throw new Error(`Node "${hub_entry.id}" has no "drive" defined in its fallback` + FALLBACK_SUBS_POST_ERROR)
-          if(!mapping?.[dataset_type])
-            throw new Error(`No mapping found for dataset "${dataset_type}" of subnode "${entry.id}" in node "${hub_entry.id}"\nTip: Add a mapping prop for "${dataset.type}" dataset in "${hub_entry.id}"'s fallback for "${entry.id}"` + FALLBACK_POST_ERROR)
+          if(!mapping?.[dataset.type])
+            throw new Error(`No mapping found for dataset "${dataset.type}" of subnode "${entry.id}" in node "${hub_entry.id}"\nTip: Add a mapping prop for "${dataset.type}" dataset in "${hub_entry.id}"'s fallback for "${entry.id}"` + FALLBACK_POST_ERROR)
           const mapped_file_type = mapping[dataset.type]
           hub_entry.inputs.some(input_id => {
             const input = db.read(['state', input_id])
@@ -585,18 +578,6 @@ function STATE (address, modulepath, dependencies) {
             }
           })
         }
-      }
-      function sanitize_mapping (mapping, super_map) {
-        if(!mapping || status.root_module)
-          return mapping
-        const new_mapping = mapping
-        Object.entries(mapping).forEach(([key, value]) => {
-          if(super_map[value])
-            new_mapping[key] = super_map[value]
-          else
-            throw new Error(`Dataset "${value}" of "${entry.id}" can't be mapped to any super datasets` + FALLBACK_POST_ERROR)
-        })
-        return new_mapping
       }
     }
     function sanitize_file (file_id, file, entry, entries) {
@@ -610,7 +591,8 @@ function STATE (address, modulepath, dependencies) {
       file.type = type
       file[file.type === 'js' ? 'subs' : 'hubs'] = [entry.id]
       if(file.$ref){
-        file.address = file.address || address
+        file.addresses = [...(status.override_addresses[modulepath] || []), address]
+        // file.$ref = local_address.substring(0, local_address.lastIndexOf("/")) + '/' + file.$ref
       }
       file.id = db.gen_id(file.id)
       while(entries[file.id]){
@@ -713,9 +695,10 @@ function extract_filename (address) {
 function get_instance_path (modulepath, modulepaths = status.modulepaths) {
   return modulepath + ':' + modulepaths[modulepath]++
 }
-async function get_input ({ id, name, $ref, type, raw, address }) {
+async function get_input ({ id, name, $ref, type, raw, addresses }) {
   const xtype = (typeof(id) === "number" ? name : id).split('.').at(-1)
-  let result = db.read(['state', id])?.raw
+  let result = db.read([type, id])
+  
   if (!result) {
     if (raw === undefined){
       // Patch: Prepend GitHub project name if running on GitHub Pages
@@ -726,9 +709,15 @@ async function get_input ({ id, name, $ref, type, raw, address }) {
           github_project = '/' + path_parts[0] + ($ref.startsWith('/') ? '' : '/')
         }
       }
-      const ref = github_project + address.substring(0, address.lastIndexOf("/")) + '/'  + $ref
-      const response = await fetch(ref, { cache: 'no-store' })
-
+      let response, ref
+      for(address of addresses){
+        if(!address)
+          continue
+        ref = github_project + address.substring(0, address.lastIndexOf("/")) + '/'  + $ref
+        response = await fetch(ref, { cache: 'no-store' })
+        if (response.ok) break
+        console.warn(`Failed to fetch from ${ref}, trying next address...`)
+      }
       if (!response.ok) 
         throw new Error(`Failed to fetch data from '${ref}' for '${id}'` + FALLBACK_SYNTAX_POST_ERROR)
       else
@@ -736,24 +725,28 @@ async function get_input ({ id, name, $ref, type, raw, address }) {
     }
     else
       result = raw
-    db.add(['state', id], { id, name, type, address, $ref, raw: result })
   }
   return result
 }
-function revive(before, after, address) {
-  if (typeof after !== "object" || after === null) return after;
+function revive (object) {
+  const refs = [];
+  const stack = [];
 
-  for (const key in after) {
-    if (key === "$ref") {
-      if (!before || before[key] !== after[key]) {
-        //@TODO: What if before is from an override not fallback
-        after.address = address;
-      }
+  JSON.parse(JSON.stringify(object), function (key, value) {
+    if (typeof value === "object" && value !== null) {
+      stack.push(key);
     } else {
-      after[key] = revive(before ? before[key] : undefined, after[key], address);
+      if (key === "$ref" && typeof value === "string") {
+        refs.push({
+          path: [...stack, key].filter(Boolean).join("/"),
+          value
+        });
+      }
     }
-  }
-  return after;
+    return value;
+  });
+
+  return refs;
 }
 //Unavoidable side effect
 function add_source_code (hubs) {
@@ -851,7 +844,7 @@ function listify(tree, prefix = '') {
 
   return result
 }
-function register_overrides ({overrides, address, ...args}) {
+function register_overrides ({overrides, ...args}) {
   const { id: root_id } = args
   recurse(args)
   return overrides
@@ -862,19 +855,22 @@ function register_overrides ({overrides, address, ...args}) {
       Object.entries(instances).forEach(([id, branch]) => {
         const resultant_path = id === '$' ? sub_path : sub_path + ':' + id
         if(typeof(branch) === 'function'){
-          const override = mutate
-          function mutate (...all) {
-            const before = JSON.parse(JSON.stringify(all[2][0]()))
-            const after = revive(before, branch(...all), address)
-            if(after.api){
-              const api = after.api
-              after.api = (...all) => {
-                const before = JSON.parse(JSON.stringify(all[2][0]()))
-                return revive(before, api(...all), address)
-              }
-            }
-            return after
-          }
+          const override = branch
+          // function mutate (...all) {
+          //   console.log('Hello: ', revive(all[2][0]()))
+          //   const temp = branch(...all)
+          //   console.log('Temp: ', revive(temp))
+          //   if(temp.api){
+          //     const api = temp.api
+          //     temp.api = (...all) => {
+          //       console.log('Hey: ', revive(all[2][0]()))
+          //       const temp = api(...all)
+          //       console.log('Temp: ', revive(temp))
+          //       return temp
+          //     }
+          //   }
+          //   return temp
+          // }
           if(overrides[resultant_path]){
             overrides[resultant_path].fun.push(override)
             overrides[resultant_path].by.push(root_id)
@@ -920,13 +916,12 @@ function create_statedb_interface (local_status, node_id, xtype) {
         get: (path) => get(path), has: (path) => has(path), 
         put: (path, buffer) => put(path, buffer), list: (path) => list(path)
       }
-  const admin_drive = { get, has, put, list }
   const api =  {
     public_api: {
       watch, get_sub, drive, get: get_drive
     },
     private_api: {
-      drive: admin_drive,
+      drive,
       xget: (id) => db.read(['state', id]),
       get_all: () => db.read_all(['state']),
       get_dataset,
@@ -954,7 +949,7 @@ function create_statedb_interface (local_status, node_id, xtype) {
       status.services[node_id] = Object.keys(on)
     const data = db.read(['state', node_id])
     if(listener){
-      (status.listeners[data.id] = status.listeners[data.id] || []).push(listener)
+      (status.listeners[data.id] ??= []).push(listener)
       await listener(await make_input_map(data.inputs))
     }
     return xtype === 'module' ? local_status.sub_modules : local_status.sub_instances[node_id]
@@ -962,30 +957,23 @@ function create_statedb_interface (local_status, node_id, xtype) {
   function register_callback (callbacks) {
     status.callbacks.push(...callbacks)
   }
-  function export_db (result) {
-    const datasets = get_dataset(result)
-    result.dataset = {}
-    datasets.forEach(dataset_id => {
-      const dataset = db.read(['state', dataset_id])
-      const node_id = dataset.node_id
-      const files = dataset.files || []
-      result.dataset[node_id] = {}
-      files.forEach(file_id => {
-        const file = db.read(['state', file_id])
-        result.dataset[node_id][file.name] = { raw: file.raw}
-      })
-    })
-    
-    const dataStr = JSON.stringify(result, null, 2);
+  function export_db () {
+    //@TODO: Use a db method instead of localStorage here
+    const dataStr = JSON.stringify(localStorage, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${result.name}-${result.type}.json`;
+    a.download = 'db.json';
     a.click();
   }
   function import_db (data) {
-    register(data)
-    status.callback({ type: 'import_db', data})
+    Object.entries(data).forEach(([id, value]) => {
+      localStorage[id] = value
+    })
+    Object.entries(status.listeners).forEach(async ([id, listener]) => {
+      const node = db.read(['state', id])
+      await status.listeners[node.id](await make_input_map(node.inputs))
+    })
   }
   function get_sub (type) {
     const subs = xtype === 'module' ? local_status.sub_modules : local_status.sub_instances[node_id]
@@ -1014,27 +1002,27 @@ function create_statedb_interface (local_status, node_id, xtype) {
     function recurse (node_id, dataset_type){
       const node_list = []
       const entry = db.read(['state', node_id])
+      const temp = entry.mapping ? Object.keys(entry.mapping).find(key => entry.mapping[key] === dataset_type) : null
+      const mapped_type = temp || dataset_type
       entry.drive && entry.drive.forEach(dataset_id => {
         const dataset = db.read(['state', dataset_id])
-        if(dataset.type === dataset_type && dataset.name === dataset_name){
-          node_list.push(dataset_id)
+        if(dataset.name === dataset_name && dataset.type === mapped_type){
+          node_list.push(node_id)
           return
         }
       })
-      entry.subs && entry.subs.forEach(sub_id => node_list.push(...recurse(sub_id, dataset_type)))
+      entry.subs && entry.subs.forEach(sub_id => node_list.push(...recurse(sub_id, mapped_type)))
       return node_list
     }
   }
   function register ({ type: dataset_type, name: dataset_name, dataset}) {
     Object.entries(dataset).forEach(([node_id, files]) => {
       const new_dataset = { files: [] }
-      const node = db.read(['state', node_id])
-
       Object.entries(files).forEach(([file_id, file]) => {
         const type = file_id.split('.').at(-1)
         
-        file.id = db.gen_id(node.name + '.' + type)
-        file.name = file_id
+        file.id = db.gen_id(local_status.name + '.' + type)
+        file.local_name = file_id
         file.type = type
         file[file.type === 'js' ? 'subs' : 'hubs'] = [node_id]
         
@@ -1043,12 +1031,10 @@ function create_statedb_interface (local_status, node_id, xtype) {
         new_dataset.files.push(file.id)
       })
   
-      new_dataset.id = db.gen_id(node_id + '.' + dataset_name + '.' + dataset_type + '.dataset')
+      const node = db.read(['state', node_id])
+      new_dataset.id = db.gen_id(node.name + '.' + dataset_type + '.dataset')
       new_dataset.name = dataset_name
       new_dataset.type = dataset_type
-      //@TODO: Make dataset xtypes dynamic
-      new_dataset.xtype = dataset_type
-      new_dataset.node_id = node_id
       
       db.push(['state', node_id, 'drive'], new_dataset.id)
       db.add(['state', new_dataset.id], new_dataset)
@@ -1104,10 +1090,7 @@ function create_statedb_interface (local_status, node_id, xtype) {
         node.inputs.push(target_dataset.id)
       }
       db.add(['state', id], node)
-      const input_map = await make_input_map(node.inputs)
-      status.listeners[id] && status.listeners[id].forEach(async listener => {
-        await listener(input_map)
-      })
+      status.listeners[id] && status.listeners[id](await make_input_map(node.inputs))
       node.subs && node.subs.forEach(sub_id => {
         const subdataset_id = target_dataset?.mapping?.[sub_id] 
         recurse(target_type, db.read(['state', subdataset_id])?.name || target_name, sub_id)
@@ -1125,7 +1108,7 @@ function create_statedb_interface (local_status, node_id, xtype) {
       on
     }
     function on (listener) {
-      (status.listeners[id] = status.listeners[id] || []).push(listener)
+      (status.listeners[id] ??= []).push(listener)
     }
   }
   //Node specific functions
@@ -1136,6 +1119,7 @@ function create_statedb_interface (local_status, node_id, xtype) {
     const dataset_names = node.drive.map(dataset_id => {
       return dataset_id.split('.').at(-2) + '/'
     })
+    
     if (path) {
       let index
       dataset_names.some((dataset_name, i) => {
@@ -1160,7 +1144,7 @@ function create_statedb_interface (local_status, node_id, xtype) {
     let dataset
     if(!node.drive)
       throw new Error(`Node ${node.id} has no drive defined in its fallback` + FALLBACK_POST_ERROR)
-    node.inputs.some(dataset_id => {
+    node.drive.some(dataset_id => {
       if (dataset_name === dataset_id.split('.').at(-2)) {
         dataset = db.read(['state', dataset_id])
         return true
@@ -1178,7 +1162,7 @@ function create_statedb_interface (local_status, node_id, xtype) {
       }
     }
     if (!target_file){
-      throw new Error(`File "${path}" not found in node "${node.id}"`)
+      throw new Error(`File "${path}" not found`)
     }
     return target_file
   }
@@ -1251,7 +1235,7 @@ async function make_input_map (inputs) {
         const input_state = db.read(['state', file_id])
         files.push(dataset.id.split('.').at(-2) + '/' + input_state.name)
       }))
-      input_map.push({ type: dataset.xtype, paths: files })
+      input_map.push({ type: dataset.type, paths: files })
     }))
   }
   return input_map
