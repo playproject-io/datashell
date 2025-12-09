@@ -424,7 +424,10 @@ async function renderer () {
       config.user.arg.version = localStorage['/conf/user/arg/version'] = version
       // @TODO: maybe always remove url param set version to use user specified instead only when set!
       // @NOTE: security issue - what if user clicks a url somebody shared to update or prompt user for version?
-      location.hash = new URLSearchParams(config.user.arg)
+      
+      // @TODO: should we uncomment the line below to update url params or not?
+      // location.hash = new URLSearchParams(config.user.arg)
+      location.hash = ''
     }
     // @TODO: what if (re) load an an update is available????
     // if (latest_cached_number_or_label < latest_number_or_label) {} // @TODO: update avaliable??
