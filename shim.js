@@ -442,6 +442,7 @@ async function renderer () {
     if (map) code = code + `\n${smap}${mime}${map}`
     return code
     async function init (versions, ...args) {
+      //# sourceMappingURL=init.js
       // const usopen = '00af49'
       // const color1 = '41b557'
       // const color2 = '63bd58'
@@ -463,13 +464,96 @@ async function renderer () {
         pack,
         shim_env, shim_arg, page_env, page_arg, user_env, user_arg
       })
+
+      const bindmap = new Map()
+
       const USE_LOCAL = 'dev' in user_arg
       const HELPER_MODULES = ['io', 'localdb', 'STATE'] // @TODO: localdb/io for userland too?
       clear_db_on_file_change()
       const [source_cache, module_cache] = args
       await patch_cache_in_browser(source_cache, module_cache)
       document.onvisibilitychange = _ => document.hidden && sessionStorage.setItem('last_item', Date.now())
+      console.log('****************************')
+      console.log('[INIT]')
+      console.log('****************************')
       return args
+      function bind (self, name) {
+        const f = self[name]
+        const F = f.bind(self)
+        if (bindmap.get(f)) return bindmap.get(f)
+        bindmap.set(f, F)
+        const valid = x => !['caller', 'callee', 'arguments'].includes(x)
+        const names = Object.getOwnPropertyNames(f).filter(valid)
+        for (const key of names) {
+          F[key] = typeof f[key] === 'function' ? bind(f, key) : f[key]
+        }
+        return F
+      }
+      function sandbox (name, module) {
+        const module_source = `return ${module}`
+
+        const G = globalThis
+        const glob = {}
+        const names = Object.getOwnPropertyNames(G)
+        for (const key of names) {
+          glob[key] = typeof G[key] === 'function' ? bind(G, key) : G[key]
+        }
+
+        glob.console = { // @TODO: should be removed to enable logging in userland
+          log: (...args) => {},
+          warn: (...args) => {},
+          error: console.error.bind(console),
+        }
+
+        const boxed_module = load(name, module_source, glob)
+        const boxed_source = `${boxed_module}`
+        // console.log('%cSANDBOX', 'color: orange;', { name, module_source, boxed_source })
+        return boxed_module
+      }
+      function load_cjs (label = '(anon)', source, require) {
+        const f = load(label, `return function (require, module, exports) { ${source} }`)
+        // console.log('%cCJS', 'color: yellow;', { label, source, f: ''+f })
+        const exports = {}
+        const module = { exports }
+//            const f = new Function('module', 'require', source)
+        console.log('%cLOAD', 'color: yellow;', label)
+        f(require, module, exports)
+        return module.exports
+      }
+      function load (label = '(anon)', source, sdk) {
+        const node = { id: null }
+        if (!sdk) {
+          sdk = {}
+          sdk.Set = Set
+          sdk.window = window
+          sdk.Boolean = Boolean
+          sdk.localStorage = localStorage
+          sdk.JSON = JSON
+          sdk.Object = Object
+          sdk.Function = Function
+          sdk.Math = Math
+          sdk.Error = Error
+          sdk.console = console
+          sdk.undefined = undefined
+          sdk.structuredClone = structuredClone.bind(globalThis)
+          sdk.isNaN = isNaN
+          sdk.Number = Number
+          sdk.Symbol = Symbol
+          sdk.Promise = Promise
+          sdk.fetch = fetch.bind(window)
+          // ------------------------------
+          sdk.AsyncFunction = `${(async () => {}).constructor}`
+          // ------------------------------
+          sdk.node = node
+          // ------------------------------
+          sdk.require = null // @TODO: fix this
+          sdk.top = null // @TODO: fix this
+          // ------------------------------
+        }
+        // @TODO: use source with `return ...` to make proper use of `evaluate()
+        const opts = { label, source, sdk }
+        return evaluate(opts)
+      }
       function clear_db_on_file_change () {
         const last_item = sessionStorage.getItem('last_item')
         const now = Date.now()
@@ -479,37 +563,34 @@ async function renderer () {
       }
       async function patch_cache_in_browser (source_cache, module_cache) {
         const prefix = 'https://raw.githubusercontent.com/playproject-io/datashell/'
+///////////////////////////////////////////////////////////////////////////////
+//        const dev = user_arg.dev
+        const USE_LOCAL = true
+        const dev = 'http://localhost:9999/lib/node_modules/'
 
-        const dev = user_arg.dev
         const state_url = new URL(USE_LOCAL ? dev + 'STATE.js' : prefix + pack['STATE'])
         const localdb_url = new URL(USE_LOCAL ? dev + 'localdb.js' : prefix + pack['localdb'])
         const io_url = new URL(USE_LOCAL ? dev + 'io.js' : prefix + pack['io'])
-
-//        debugger
 // @TODO: make iframe based cors compatible temporary `STATE` module fetch possible!
 // @TODO: think about whether that makes sense in the long run too or not!
-
+///////////////////////////////////////////////////////////////////////////////
         const [STATE_JS, localdb_js, io_js] = await Promise.all([
           fetch(state_url, { cache: 'no-store' }).then(res => res.text()),
           fetch(localdb_url, { cache: 'no-store' }).then(res => res.text()),
           fetch(io_url, { cache: 'no-store' }).then(res => res.text())
         ]).then(([state_source, localdb_source, io_source]) => {
           const dependencies = {
-            localdb: load(localdb_source),
-            io: load(io_source)
+            localdb: load_cjs('STATE/localdb', localdb_source),
+            io: load_cjs('STATE/io', io_source)
           }
-          const STATE_JS = load(state_source, (dependency) => dependencies[dependency])
+          const STATE_JS = load_cjs('STATE', state_source, (dependency) => dependencies[dependency])
           return [STATE_JS, dependencies.localdb, dependencies.io]
-          function load (source, require) {
-            const module = { exports: {} }
-            const f = new Function('module', 'require', source)
-            f(module, require)
-            return module.exports
-          }
         })
         const meta = { modulepath: ['page'], paths: {} }
         for (const key of Object.keys(source_cache)) {
-          const [module, names] = source_cache[key]
+          const source = source_cache[key]
+          source[0] = sandbox(key, source[0])
+          const [module, names] = source
           const dependencies = names || {}
           source_cache[key][0] = patch(module, dependencies, meta)
         }
@@ -517,7 +598,7 @@ async function renderer () {
           const MAP = {}
           for (const [name, number] of Object.entries(dependencies)) MAP[name] = number
           return (...args) => {
-            const original = args[0]
+            const original_require = args[0]
             require.cache = module_cache
             require.resolve = resolve
             args[0] = require
@@ -530,12 +611,14 @@ async function renderer () {
                 if (name.endsWith('STATE')) original_export = STATE_JS
                 else if (name.endsWith('localdb')) original_export = localdb_js
                 else if (name.endsWith('io')) original_export = io_js
-                else {
-                  original_export = require.cache[identifier] || (require.cache[identifier] = original(name))
-                }
+                // else {
+                //   console.log('%cHELPER_MODULES', 'color: red;', name)
+                //   original_export = require.cache[identifier] || (require.cache[identifier] = original_require(name))
+                // }
                 const exports = (...args) => original_export(...args, modulepath, Object.keys(dependencies))
                 return exports
               } else {
+                console.log('%cMODULES', 'color: green;', name)
                 // Clear cache for non-STATE and non-io modules
                 delete require.cache[identifier]
                 const counter = meta.modulepath.concat(name).join('>')
@@ -543,7 +626,7 @@ async function renderer () {
                 const localid = `${name}${meta.paths[counter] ? '#' + meta.paths[counter] : ''}`
                 meta.paths[counter]++
                 meta.modulepath.push(localid.replace(/^\.\+/, '').replace('>', ','))
-                const exports = original(name)
+                const exports = original_require(name)
                 meta.modulepath.pop(name)
                 return exports
               }
@@ -555,3 +638,571 @@ async function renderer () {
     }
   }
 }
+
+/////////////////////////////////////////////////////////////////////
+/* PROXy CONCEPT SANDBOX
+// proxy-sandbox.js
+function createProxySandbox(endowments = {}) {
+  // copy and freeze endowments so guest can't mutate host objects
+  const safeEndow = {};
+  for (const k of Object.keys(endowments)) {
+    safeEndow[k] = endowments[k];
+    Object.freeze(safeEndow[k]);
+  }
+  Object.freeze(safeEndow);
+
+  const handler = {
+    // Only report names that are actually present in the endowments.
+    // This is what makes `typeof missingName` return "undefined" and
+    // unqualified `missingName` produce ReferenceError semantics.
+    has(target, prop) {
+      // treat Symbol.unscopables and internals conservatively:
+      if (prop === Symbol.unscopables) return false;
+      return Object.prototype.hasOwnProperty.call(safeEndow, prop);
+    },
+    get(target, prop, receiver) {
+      if (prop === Symbol.unscopables) return;
+      if (Object.prototype.hasOwnProperty.call(safeEndow, prop)) {
+        return safeEndow[prop];
+      }
+      // If get is called for a non-existent property, throw like an undefined global read
+      // would in strict-mode code that resolves in the env. This keeps semantics strict-ish.
+      throw new ReferenceError(`${String(prop)} is not defined`);
+    },
+    // optional: block property creation and assignment unless allowed
+    set(target, prop, value) {
+      if (!Object.prototype.hasOwnProperty.call(safeEndow, prop)) {
+        // writing to unknown global: mimic strict-mode behavior (throw)
+        throw new ReferenceError(`${String(prop)} is not defined`);
+      }
+      // if present and we allowed mutability, you could update; here we forbid
+      return false; // indicate failure to set (in strict mode this throws)
+    },
+    // prevent enumeration from leaking internals
+    ownKeys() {
+      return Object.keys(safeEndow);
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (Object.prototype.hasOwnProperty.call(safeEndow, prop)) {
+        return {
+          configurable: false,
+          enumerable: true,
+          writable: false,
+          value: safeEndow[prop],
+        };
+      }
+      return undefined;
+    }
+  };
+
+  const proxy = new Proxy({}, handler);
+
+  // Build a non-strict outer function that uses `with(proxy)` and invokes a strict IIFE.
+  // The outer function must be non-strict to allow `with`.
+  function run(src) {
+    // We intentionally avoid giving the outer function access to anything else.
+    const wrapper = new Function('sandboxProxy', `
+      with (sandboxProxy) {
+        return (function() { "use strict";\n${src}\n})()
+      }
+    `);
+    return wrapper(proxy);
+  }
+
+  return { run, proxy, endowments: safeEndow };
+}
+
+// Example:
+const sb = createProxySandbox({ a: 1, Math });
+console.log(sb.run('a + 2'));          // 3
+try { sb.run('b + 1'); } catch (e) { console.log(e.name, e.message); } // ReferenceError b is not defined
+console.log(sb.run('typeof b'));      // "undefined"
+
+// @TODO: Implementing temporal dead zone (TDZ) or other lexically-scoped behaviors precisely is hard with this approach.
+
+// @TODO: time limits in iframe to abort
+// Consider running the compiled function in a separate process, worker, or real VM for defense-in-depth and to allow CPU/time limits.
+
+
+
+// QUESTION:
+// 1. strict mode cant define vars on global implicitly like e.g. `foo = 123` in sloppy mode can
+// 2. can i have `x.run('const x = 123')` followed by `x.run('console.log(x)')` ?
+
+*/
+function evaluate ({ label, source, sdk = {} } = {}) {
+  // ------------------------------
+  const name = label || sdk.name || '(anon)' // @TODO: increase counter maybe
+  if (typeof source === 'function') source = `return (${source})()`
+  Object.assign(sdk, { globalThis: sdk })
+  const global = new Proxy(sdk, {
+    // @TODO: try to catch any proxy trap errors and modify stack trace to exclude proxy
+    // @TODO: consider full membrane!
+    get (sdk, k) {
+      if (k === Symbol.unscopables) return
+      if (Object.prototype.hasOwnProperty.call(sdk, k)) {
+        const value = sdk[k] === sdk ? global : sdk[k]
+        var new_value
+        if (typeof value === 'function') {
+          new_value = value.bind(sdk)
+          const names = Object.getOwnPropertyNames(value).filter(x => !['caller', 'callee', 'arguments'].includes(x))
+          for (const name of names) new_value[name] = value[name]
+        }
+        else new_value = value
+        return new_value
+      }
+      // If get is called for a non-existent property, throw like an undefined global read
+      // would in strict-mode code that resolves in the env. This keeps semantics strict-ish.
+      throw new ReferenceError(`${String(k)} is not defined`)
+      // throw new Error(`Uncaught ReferenceError: ${k} is not defined`)
+    },
+    put (sdk, k, v) { return sdk[k] = v === sdk ? global : v },
+    has (sdk, k) {
+      if (k === Symbol.unscopables) return false
+      return Object.prototype.hasOwnProperty.call(sdk, k)
+    },
+    deleteProperty (sdk, k) { return delete sdk[k] },
+    ownKeys(sdk) { return Object.keys(sdk) },
+    isExtensible (sdk) { return Object.isExtensible(sdk) },
+    setPrototypeOf (sdk, p) { return Reflect.setPrototypeOf(sdk, p) },
+    getPrototypeOf (sdk) { return Reflect.getPrototypeOf(sdk) },
+    // apply (sdk, self, args) { return Reflect.apply(sdk, sefl, args) },
+    // construct (sdk, args, o) { return Reflect.construct(sdk, args, o) },
+    defineProperty (sdk, k, descriptor) {
+      Object.defineProperty(sdk, k, descriptor)
+      return global
+    },
+    getOwnPropertyDescriptor (sdk, k) {
+      return Object.getOwnPropertyDescriptor(sdk, k)
+    },
+    preventExtension (sdk) {
+      Object.preventExtensions(sdk)
+      return true
+    },
+  })
+  // const run = new Function(`return async node => { ${source} }`)()
+  const run = new Function('global', `//# sourceURL=${name}
+  with (global) return (function () { "use strict";\n${source};\n})()`)
+  // ------------------------------
+  // const input_drives = [drive1, drive2, drive3]
+  // launch or work on a task worked on by a person or machine:
+  const exports = run(global) // = evaluate or execute
+  return exports
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ALTERNATIVE:
+
+
+function make_box (code = '', context = {}, ended = false) {
+  code = typeof code === 'function' ? `(${code})()` : code
+  const makegen = (0, eval)(`(function make (global = {}) {
+    with (global) return (function * () {
+      'use strict'
+       console.log(123, global, a)
+      ;${code};
+      while (true) eval(yield)
+    })()
+  })`)
+  const gen = makegen(context)
+  gen.next(code)
+  return { run, end }
+  function end (src) {
+    if (ended) return
+    ended = true
+    const { value, done } = gen.return(src)
+    console.log({ value, done })
+    return
+  }
+  function run (src) {
+    if (ended) return
+    const { value, done } = gen.next(src)
+    if (done) ended = true
+    return value
+  }
+}
+const context = { a: 123, b: 321 }
+const box = make_box('console.log("start"); const c = 321', context)
+
+box.run('console.log(a)');  // 123
+box.run('var b = 321');   // creates b in context
+box.run('console.log(a + c)'); // 444
+
+
+
+
+
+
+
+function create_context_function_template(eval_string, context) {
+  return `
+  return function (context) {
+    "use strict";
+    ${Object.keys(context).length > 0
+      ? `let ${Object.keys(context).map((key) => ` ${key} = context['${key}']`)};`
+      : ``
+    }
+    return ${eval_string};
+  }
+  `
+}
+
+function make_context_evaluator(eval_string, context) {
+  let template = create_context_function_template(eval_string, context)
+  let functor = Function(template)
+  return functor()
+}
+
+
+
+let context = {b: (a, b) => console.log(a, b)}
+let evaluator = make_context_evaluator("b('foo', 'bar')", context)
+let result = evaluator(context)
+
+
+function eval_like(text, context={}) {
+   let evaluator = make_context_evaluator(text, context)
+   return evaluator(context)
+}
+
+eval_like("fun + 2", {fun: 1})
+eval_like("() => fun", {fun: 2})()
+
+
+///////////
+
+ function evalInContext(js, context) {
+    return function(str){
+        return eval(str);
+    }.call(context, ' with(this) { ' + js + ' } ');
+}
+
+
+
+var evalWithinContext = function(context, code) {
+    (function(code) { eval(code); }).apply(context, [code]);
+}
+evalWithinContext(anyContext, anyString)
+
+/////////////////
+
+function makeEvalContext (declarations) {
+    eval(declarations);
+    return function (str) { eval(str); }
+}
+
+eval1 = makeEvalContext ("var x;");
+eval2 = makeEvalContext ("var x;");
+
+eval1("x = 'first context';");
+eval2("x = 'second context';");
+eval1("window.alert(x);");
+eval2("window.alert(x);");
+
+
+
+
+//////////////////
+function execInContext(code, context) {
+    return Function(...Object.keys(context), 'return '+ code (...Object.values(context));
+}
+
+//////////////////
+
+class ScopedEval {
+    constructor(scope) {
+        this.scope = scope;
+    }
+    eval(__script) {
+        return new Function(...Object.keys(this.scope),`
+                return eval(
+                    '"use strict";delete this.__script;' 
+                    + this.__script
+                );
+            `.replace(/[\n\t]|  +/g,'')
+        ).bind({__script})(...Object.values(this.scope));
+    }
+}
+
+// VS
+
+class ScopedEval {
+    constructor(scope) {
+        this.scope = scope;
+    }
+    eval(__script) {
+        return new Function(...Object.keys(this.scope),`
+                return eval(
+                    '"use strict";delete this.__script;' 
+                    + this.__script
+                );
+            `.replace(/[\n\t]|  +/g,'')
+        ).bind({__script})(...Object.values(this.scope));
+    }
+}
+
+const context = {
+  hi: 12,
+  x: () => 'this is x',
+  get xGet() {
+    return 'this is the xGet getter'
+  }
+};
+
+const x = new ScopedEval(context)
+console.log(x.eval('"hi = " + hi'));
+console.log(x.eval(`
+let k = x();
+"x() returns " + k
+`));
+console.log(x.eval('xGet'));
+
+x.scope.someId = 42;
+console.log(x.eval('(() => someId)()'))
+
+
+// VS
+
+// Source - https://stackoverflow.com/a
+// Posted by joshhemphill, modified by community. See post 'Timeline' for change history
+// Retrieved 2025-12-03, License - CC BY-SA 4.0
+
+ class ScopedEval {
+    constructor(scope) {
+        this.scope = scope;
+    }
+    eval (__script) {
+        return new Function(...Object.keys(this.scope), `
+                    return eval(
+                        '"use strict";delete this.__script;' 
+                        + this.__script
+                    );
+                `.replace(/\t/, ''))
+            .bind({
+                __script
+            })
+            (...Object.values(this.scope));
+    }
+}
+const context = {
+    hi: 12,
+    x: () => 'this is x',
+    get xGet () {
+        return 'this is the xGet getter'
+    }
+};
+
+const x = new ScopedEval(context)
+console.log(x.eval('"hi = " + hi'));
+console.log(x.eval(`
+    let k = x();
+    "x() returns " + k
+    `));
+console.log(x.eval('xGet'));
+
+x.scope.someId = 42;
+console.log(x.eval('(() => someId)()'))
+
+
+//////////////
+
+var expression = "fn((a+b)*c,2)";
+var context = { a: 1, b: 2, c: 3 };
+var func = function(x,y){return x+y;};
+
+function evaluate(ex, ctx, fn) {
+return eval("var "+JSON.stringify(ctx).replace(/["{}]/gi, "").replace(/:/gi, "=")+", fn="+fn.toString()+";"+ex);
+}
+
+var answer = evaluate(expression, context, func);
+console.log(answer);
+
+/////////////
+
+function scopedEval(context, expr) {
+    const evaluator = Function.apply(null, [...Object.keys(context), 'expr', "return eval('expr = undefined;' + expr)"]);
+    return evaluator.apply(null, [...Object.values(context), expr]);
+}
+
+// Usage
+const context = {a: 1, b: 2, c: {d: 3}};
+scopedEval(context, "a+b+c.d");  // 6
+
+// Nice solution. Context aside, however, the value of the expression can be obtained too. I'd make sure to unset that: "return eval('expr = undefined;' + expr)"
+
+///////////////////////////////
+// Source - https://stackoverflow.com/a
+// Posted by Bill Burdick
+// Retrieved 2025-12-03, License - CC BY-SA 3.0
+
+// Scope class
+//   aScope.eval(str) -- eval a string within the scope
+//   aScope.newNames(name...) - adds vars to the scope
+function Scope() {
+  "use strict";
+  this.names = [];
+  this.eval = function(s) {
+    return eval(s);
+  };
+}
+
+Scope.prototype.newNames = function() {
+  "use strict";
+  var names = [].slice.call(arguments);
+  var newNames = names.filter((x)=> !this.names.includes(x));
+
+  if (newNames.length) {
+    var i, len;
+    var totalNames = newNames.concat(this.names);
+    var code = "(function() {\n";
+
+    for (i = 0, len = newNames.length; i < len; i++) {
+      code += 'var ' + newNames[i] + ' = null;\n';
+    }
+    code += 'return function(str) {return eval(str)};\n})()';
+    this.eval = this.eval(code);
+    this.names = totalNames;
+  }
+}
+
+
+// LOGGING FOR EXAMPLE RUN
+function log(s, eval, expr) {
+	s = '<span class="remark">' + String(s);
+  if (expr) {
+    s += ':\n<b>' + expr + '</b>   -->   ';
+  }
+  s += '</span>';
+  if (expr) {
+    try {
+      s += '<span class="result">' + JSON.stringify(eval(expr)) + '</span>';
+    } catch (err) {
+      s += '<span class="error">' + err.message + '</span>';
+    }
+  }
+  document.body.innerHTML += s + '\n\n';
+}
+document.body.innerHTML = '';
+
+
+// EXAMPLE RUN
+var scope = new Scope();
+log("Evaluating a var statement doesn't change the scope but newNames does (should return undefined)", scope.eval, 'var x = 4')
+log("X in the scope object should raise 'x not defined' error", scope.eval, 'x');
+log("X in the global scope should raise 'x not defined' error", eval, 'x');
+log("Adding X and Y to the scope object");
+scope.newNames('x', 'y');
+log("Assigning x and y", scope.eval, 'x = 3; y = 4');
+log("X in the global scope should still raise 'x not defined' error", eval, 'x');
+log("X + Y in the scope object should be 7", scope.eval, 'x + y');
+log("X + Y in the global scope should raise 'x not defined' error", eval, 'x + y');
+
+----------------------
+IDEAS:
+
+
+Nice addition and good example, thank you! I was wondering if there is a way to "inject" a value into the scope. for example scope.define("x", 3)?
+
+Bill Burdick
+Over a year ago
+To "add variables" to a scope, you could make a new scope with the new variables inside the old one. The new scope would inherit the variables of the old scope. This doesn't change the old scope's set of variables though.You could assign the old scope's eval property with the value of the new scope's eval.
+
+
+/////////
+function run(source, env) {
+  // Convert env keys into parameters
+  const args = Object.keys(env);
+  const vals = Object.values(env);
+
+  // Create a function with explicit lexical bindings
+  const fn = new Function(...args, `"use strict";\n${source}`);
+
+  return fn(...vals);
+}
+*/
+
+/* MORE DETAIL:
+// lexical-runner.js
+const compileCache = new Map();
+
+function isIdentifier(name) {
+  // conservative check: letters, $, _, digits not starting with digit
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name);
+}
+
+function makeRunner() {
+  return {
+    run(source, endow = {}) {
+      const keys = Object.keys(endow);
+
+      // validation
+      for (const k of keys) {
+        if (!isIdentifier(k)) throw new Error(`Invalid endowment name: ${k}`);
+        if (k === 'constructor' || k === '__proto__') throw new Error(`Forbidden endowment name: ${k}`);
+      }
+
+      // key for cache: source + '|' + joined keys (order matters)
+      const cacheKey = source + '|' + keys.join(',');
+      let fn = compileCache.get(cacheKey);
+      if (!fn) {
+        // Build function with explicit parameter names
+        // strict mode to get strict semantics
+        const wrapperArgs = keys.join(',');
+        const wrapperSrc = `"use strict";\nreturn (async function(${wrapperArgs}){\n${source}\n})`;
+        // create as async function wrapper so it can support top-level await optionally
+        fn = new Function(wrapperSrc)(); // returns the async function
+        compileCache.set(cacheKey, fn);
+      }
+
+      // freeze/shallow-copy endowments to prevent tampering
+      const args = keys.map(k => endow[k]);
+
+      // Call the compiled function with the provided values as parameters.
+      // To keep the function in global-less lexical scope, we call it with undefined `this`.
+      // If it's async, return the promise; otherwise return the value.
+      return fn(...args);
+    },
+
+    // optional helper to precompile (warm cache)
+    compile(source, endowKeys = []) {
+      const cacheKey = source + '|' + endowKeys.join(',');
+      if (compileCache.has(cacheKey)) return;
+      const wrapperSrc = `"use strict";\nreturn (async function(${endowKeys.join(',')}){\n${source}\n})`;
+      const compiled = new Function(wrapperSrc)();
+      compileCache.set(cacheKey, compiled);
+    },
+
+    // optional: clear cache
+    clearCache() {
+      compileCache.clear();
+    }
+  };
+}
+
+// Usage:
+const runner = makeRunner();
+(async () => {
+  const res = await runner.run('return a + b;', { a: 1, b: 2 });
+  console.log(res); // 3
+
+  try {
+    runner.run('c + 1;', { a: 1 });
+  } catch (e) {
+    console.log(e.name, e.message); // ReferenceError: c is not defined
+  }
+
+  console.log(await runner.run('return typeof c;', { a: 1 })); // "undefined"
+})();
+*/
