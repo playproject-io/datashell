@@ -1,23 +1,8 @@
 {
-  "stable": 1,
-  "latest": 3,
+  "stable": null,
+  "latest": 1,
   "": {
-    "3": {
-      "STATE": "refs/heads/main/lib/node_modules/STATE.js",
-      "localdb": "refs/heads/main/lib/node_modules/localdb.js",
-      "io": "refs/heads/main/lib/node_modules/io.js"
-    },
     "1": {
-      "STATE": "c9c8c1ad3971b4c3012c8a617b57272634b0fa2c/lib/node_modules/STATE.js",
-      "localdb": "c9c8c1ad3971b4c3012c8a617b57272634b0fa2c/lib/node_modules/localdb.js",
-      "io": "c9c8c1ad3971b4c3012c8a617b57272634b0fa2c/lib/node_modules/io.js"
-    },
-    "0": {
-      "STATE": "c9c8c1ad3971b4c3012c8a617b57272634b0fa2c/lib/node_modules/STATE.js",
-      "localdb": "c9c8c1ad3971b4c3012c8a617b57272634b0fa2c/lib/node_modules/localdb.js",
-      "io": "c9c8c1ad3971b4c3012c8a617b57272634b0fa2c/lib/node_modules/io.js"
-    },
-    "2": {
       "STATE": "refs/heads/main/lib/node_modules/STATE.js",
       "localdb": "refs/heads/main/lib/node_modules/localdb.js",
       "io": "refs/heads/main/lib/node_modules/io.js"

@@ -1,6 +1,6 @@
 {
   "name": "datashell",
-  "version": "0.0.2-pre-alpha",
+  "version": "0.0.3-pre-alpha",
   "description": "DatAShell command line tool",
   "directories": {
     "lib": "lib"
@@ -8,10 +8,10 @@
   "scripts": {
     "start": "npx http-server . -p 9966 --cors",
     "shim": "npx http-server . -p 9999 --cors",
-    "budo": "budo web/page.js:bundle.js --live -- -i STATE",
-    "budo:1": "budo web/example1/page.js:bundle.js --live -- -i STATE -i localdb",
-    "budo:2": "budo web/example2/page.js:bundle.js --live -- -i STATE",
-    "budo:3": "#budo web/example3/page.js:bundle.js --live -- -i STATE"
+    "budo": "budo web/page.js:bundle.js --live -- -i STATE --full-paths",
+    "budo:1": "budo web/example1/page.js:bundle.js --live -- -i STATE -i localdb --full-paths",
+    "budo:2": "budo web/example2/page.js:bundle.js --live -- -i STATE --full-paths",
+    "budo:3": "#budo web/example3/page.js:bundle.js --live -- -i STATE --full-paths"
   },
   "bin": {
     "ds": "bin/cli.js"
