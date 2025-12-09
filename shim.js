@@ -268,6 +268,11 @@ async function renderer () {
     PROMPT_UI
   ****************************************************************************/
   function prompt_ui (v, wmax = 57, hmax = 17) {
+    //  Data Application Terminal
+    //  Data Access Terminal
+    //  Distributed Application Terminal
+    //  DataShell Application Terminal
+    //  DataShell Access Terminal
     const aliases = Object.keys(v).filter(Boolean)
     const resolve = Object.fromEntries(aliases.map(k => [v[k], k]))
     const numbers = Object.keys(v[''])
@@ -284,7 +289,7 @@ async function renderer () {
     return bui
     function bui (version = v.stable, type = '', txt = '', pack = all[version]) { // get_pack
 
-      const lines = view(issue.length ? `⛔ ${issue}:` : '', txt, choose, version_list.join(', '))
+      const lines = view(type.length ? `⛔ ${type}:` : '', txt, choose, version_list.join(', '))
 
       if (lines.length > 11) console.warn(`⛔ overlay view has more than 17 lines`, lines.length, '\n', lines.join('\n'))
       if (lines.length > 24) console.error(`⛔ overlay view has more than 24 lines`, lines.length, '\n', lines.join('\n'))
@@ -383,7 +388,7 @@ async function renderer () {
     const userver = conf.user.arg.version && validate_version(conf.user.arg.version, v, function fix (version) {
       const type = 'user'
       const txt = `invalid ${type} set version "${version}", If version param is provided it must be valid`
-      version = USER.ask_version(version, `Error`, txt)
+      version = USER.ask_version(version, `invalid`, txt)
       if (version === null) throw new Error(txt, { cause: new Error('abort') })
       return version
     })
@@ -392,7 +397,7 @@ async function renderer () {
     const loadver = localStorage['/conf/user/arg/version'] && validate_version(localStorage['/conf/user/arg/version'] || 6, v, function fix (version) {
       const txt = `corrupted cached version "${version}". Try to repair by choosing valid shim version`
       if (userver) return (console.warn(txt), userver)
-      version = USER.ask_version(version, 'Error', txt)
+      version = USER.ask_version(version, 'invalid', txt)
       if (version === null) throw new Error(txt, { cause: new Error('abort') })
       return version
     })
@@ -402,7 +407,7 @@ async function renderer () {
       if (userver || loadver) return (console.warn(txt), userver || loadver)
       const type = 'shim'
       const txt = `invalid ${type} set version "${version}"`
-      version = USER.ask_version(version, 'Error', txt) // more prompt: adapt prompt to share previous wrong selection
+      version = USER.ask_version(version, 'invalid', txt) // more prompt: adapt prompt to share previous wrong selection
       if (version === null) throw new Error(txt, { cause: new Error('abort') })
       return version
     })
