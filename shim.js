@@ -572,9 +572,9 @@ async function renderer () {
       async function patch_cache_in_browser (source_cache, module_cache) {
         const prefix = 'https://raw.githubusercontent.com/playproject-io/datashell/'
 ///////////////////////////////////////////////////////////////////////////////
-//        const dev = user_arg.dev
-        const USE_LOCAL = true
-        const dev = 'http://localhost:9999/lib/node_modules/'
+        const dev = user_arg.dev
+//        const USE_LOCAL = true
+//        const dev = 'http://localhost:9999/lib/node_modules/'
 
         const state_url = new URL(USE_LOCAL ? dev + 'STATE.js' : prefix + pack['STATE'])
         const localdb_url = new URL(USE_LOCAL ? dev + 'localdb.js' : prefix + pack['localdb'])
