@@ -1,35 +1,16 @@
-const STATE = require('../../../src/node_modules/STATE')
+const STATE = require('STATE')
 const statedb = STATE(__filename)
-const { sdb, subs: [get] } = statedb(fallback_module)
-function fallback_module () {
-  return {
-    _: {
-      app: {
-        $: '',
-        0: override_app
-      }
-    },
-    drive: {
-      theme: {
-        'style.css': {
-          raw: 'body { font-family: \'system-ui\'; }'
-        }
-      }
-    }
-  }
+const { on } = statedb.admin()
+const { sdb, get } = statedb(fallback_module)
+const { drive } = sdb
 
-  function override_app ([app]) {
-    const data = app()
-    return data
-  }
-}
-
+document.title = 'demo3'
 /******************************************************************************
   PAGE
 ******************************************************************************/
 const app = require('app')
 const sheet = new CSSStyleSheet()
-config().then(() => boot({ sid: '' }))
+config().then(boot)
 
 async function config () {
   // const path = path => new URL(`../src/node_modules/${path}`, `file://${__dirname}`).href.slice(8)
@@ -53,7 +34,7 @@ async function config () {
 /******************************************************************************
   PAGE BOOT
 ******************************************************************************/
-async function boot (opts) {
+async function boot () {
   // ----------------------------------------
   // ID + JSON STATE
   // ----------------------------------------
@@ -73,18 +54,50 @@ async function boot (opts) {
   // ELEMENTS
   // ----------------------------------------
   // desktop
-  shadow.append(await app(subs[1]))
+  debugger
+  shadow.append(await app(subs[0]))
 
   // ----------------------------------------
   // INIT
   // ----------------------------------------
 
-  function onbatch (batch) {
-    for (const { type, data } of batch) {
+  async function onbatch (batch) {
+    // for (const { type, data } of batch) {
+    //   on[type] && on[type](data)
+    // }
+    for (const {type, paths} of batch) {
+      const data = await Promise.all(paths.map(path => drive.get(path).then(file => file.raw)))
       on[type] && on[type](data)
     }
   }
 }
 async function inject (data) {
   sheet.replaceSync(data.join('\n'))
+}
+/******************************************************************************
+  DEFAULTS
+******************************************************************************/
+function fallback_module () {
+  return {
+    _: {
+      app: {
+        $: '',
+        0: override_app,
+        mapping: { style: 'theme', lang: 'lang' }
+      }
+    },
+    drive: {
+      lang: {},
+      theme: {
+        'style.css': {
+          raw: 'body { font-family: \'system-ui\'; }'
+        }
+      }
+    }
+  }
+
+  function override_app ([app]) {
+    const data = app()
+    return data
+  }
 }

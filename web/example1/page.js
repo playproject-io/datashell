@@ -6,7 +6,7 @@ admin_api.on(event => {
   // console.log('%c' + 'Event', 'color: #ff4500; font-weight: bold', event)
 })
 const { sdb, io } = statedb(defaults)
-document.title += ' - example1'
+document.title = 'demo1'
 /******************************************************************************
   PAGE
 ******************************************************************************/
@@ -62,6 +62,7 @@ async function boot () {
   // ELEMENTS
   // ----------------------------------------
   ;{ // desktop
+    debugger
     shadow.append(await app(subs[0]))
   }
   // ----------------------------------------
