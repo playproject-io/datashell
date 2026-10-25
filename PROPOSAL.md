@@ -668,7 +668,7 @@ Still open in the latest code.
 2. **Rooms inside rooms.** Each room only gets what it needs, and nothing else.
 3. **Local first, p2p when needed.** Apps work offline with the same API. Datashell quietly makes things p2p only when you share, go online, or add a device.
 4. **Few methods, each doing more.** Group them by what you want to do, not by how the code works.
-5. **Each part only sees its own.** An app is a tree of modules and instances. Each one can create and change its own data structures, but never anyone else's. Some things stay internal, like the audit log, so everyone can check what each part did.
+5. **Each part only sees its own.** An app is a tree of modules and instances. Each one can create and change its own data structures, but never anyone else's. Some things stay inside datashell, like the app's history, so everyone can check what each part did.
 6. **Start from STATE.js.** Where STATE.js already works well, the vault follows it. But STATE.js isn't finished either, so it can change too.
 7. **Every flow can resume.** The page can reload or the computer can crash at any step. Every flow (pairing, login, setup) must be able to continue where it stopped.
 </details>
@@ -678,7 +678,7 @@ Still open in the latest code.
 - **Front door (env):** before anything exists. Make a new **box** (your own virtual device), pair with your other device, or load a box you already have. Later there can be several boxes or accounts, protected by a seed phrase or password.
 - **Control room (sys):** the admin room of your box, like a wallet. Your devices, apps and history.
 - **Container rooms:** one for every app that runs, and many can run side by side. Each one has two parts:
-  - **app control room:** the app's own private part, run by datashell: its history, its metadata, which devices may write.
+  - **app control room:** the app's own private part, run by datashell: its history, info about the app, which devices may write.
   - **app custom room:** the app itself.
 - **Inside the app:** the app is a tree of modules and instances (like the STATE.js news app). Each instance has its own `id`, `disk` (files) and `io` (talk to other parts).
 - **Rooms can nest:** a container room can hold the whole thing again: its own front door, control room and container rooms.
@@ -702,15 +702,15 @@ flowchart TD
 
 | Room | Like… | What happens there | Gets |
 |---|---|---|---|
-| **Front door** | a hypervisor or login screen | make, pair or load a box | `env` |
+| **Front door** | a login screen | make, pair or load a box | `env` |
 | **Control room** | a wallet | manage devices, apps and history | `sys` |
-| **App control room** | the app's own settings, run by datashell | its history, metadata, who may write | `app` |
+| **App control room** | the app's own settings, run by datashell | its history, info about the app, who may write | `app` |
 | **App custom room** | the app itself | modules and instances doing the work | each instance's `sdb` (`id`, `disk`, `io`) |
 
 <details>
 <summary>What is built in, and what the app makes itself</summary>
 
-- **Built in, made by datashell:** every app gets an audit log (its history) and some metadata. The app doesn't create them, and the control room can look at them.
+- **Built in, made by datashell:** every app gets its own history (an audit log) and some info about it (metadata). The app doesn't create them, and the control room can look at them.
 - **Made by the app:** each instance has its own `sdb.disk`, a filesystem. If an app needs other kinds of data, it gets `sdb.db` to make its own (see open questions).
 </details>
 
@@ -797,7 +797,7 @@ const sys = await env.load({ words })
 const boxes = await env.boxes()
 const sys = await boxes[0].open({ password })
 ```
-Like a hypervisor with virtual machines: each box is its own virtual device. You can only open, change or delete boxes you own.
+Like a computer that can run other computers inside it: each box is its own virtual device. You can only open, change or delete boxes you own.
 
 **Replaces:** nothing yet. Today there is one box per browser origin.
 </details>
@@ -914,7 +914,7 @@ const theme = await app.data.get('theme')
 await app.data.del('theme')
 app.data.on('theme', value => render(value))
 ```
-The same names as Hyperbee, the key-value store the vault already uses. Whether small data belongs to the whole app or to each instance's `sdb` is still open.
+The same names the vault's own store of names and values already uses (Hyperbee). Whether small data belongs to the whole app or to each instance's `sdb` is still open.
 
 **Replaces:** `vault_put` · `vault_get` · `vault_del` · `vault_watch(key)` + a `for await` loop + `vault_get`.
 </details>
@@ -928,7 +928,7 @@ await sdb.disk.put('posts/1.json', JSON.stringify(post))
 const file = await sdb.disk.get('posts/1.json')
 const posts = await sdb.disk.list('posts/')
 ```
-A filesystem for each module instance. It starts with the basics, roughly what `sdb.drive` already has, and later grows closer to Hyperdrive. The first time an instance uses it, it's created. On your other devices, the same instance opens the same files, and a new device can write too.
+A filesystem for each module instance. It starts with the basics, roughly what `sdb.drive` already has, and later grows into a full shared folder (like Hyperdrive). The first time an instance uses it, it's created. On your other devices, the same instance opens the same files, and a new device can write too.
 
 **Replaces:** autodisk via `create_ds_manager()` + `set_ds_manager()` + `init_all()`. Datashell does the rest by itself:
 - `register_app()` / `get_app()`: remember the disk keys, so your other devices find the same disks
@@ -943,7 +943,7 @@ A filesystem for each module instance. It starts with the basics, roughly what `
 ```js
 const log = sdb.db.get('my-log')   // a raw append-only log, only for this instance
 ```
-For apps that need something other than files. It's a corestore slice for this instance only, so it can't touch anyone else's data.
+For apps that need something other than files. It's this instance's own storage space (a corestore namespace), so it can't touch anyone else's data.
 
 **Replaces:** the app vault's `store` (a corestore namespace for the whole app) and the hard-coded structure types.
 </details>
@@ -962,7 +962,7 @@ Every app gets one automatically. The app doesn't create it. It only shows **thi
 <details>
 <summary><code>app.net</code>: talking to other people (not designed yet)</summary>
 
-A placeholder. Before designing it, we first need to list what p2p networking can do (Lupay's `network()`, swarms, topics, protocols) and how that fits net.js and `io`, which STATE.js apps already use.
+A placeholder. Before designing it, we first need to list what p2p networking can do (Lupay's `network()`, how peers find each other, how they talk) and how that fits net.js and `io`, which STATE.js apps already use.
 
 **Replaces:** `network()` + `swarm.join(topic)` with a 32-byte topic.
 </details>
@@ -970,7 +970,7 @@ A placeholder. Before designing it, we first need to list what p2p networking ca
 <details>
 <summary>Packages and many copies of the same app</summary>
 
-Every app is made from a **pkg** (package): a named disk with the app's code, with a `dat://` link behind the name. There can be **many copies of the same app**, each in its own container room and isolated from the others, e.g. `anna:p2p-news-app` and `bob:p2p-news-app`. How apps are installed and started from pkgs is still to work out.
+Every app is made from a **pkg** (package): a named disk with the app's code, with a `dat://` link behind the name. There can be **many copies of the same app**, each in its own container room and kept apart from the others, e.g. `anna:p2p-news-app` and `bob:p2p-news-app`. How apps are installed and started from pkgs is still to work out.
 </details>
 
 <details>
@@ -1013,7 +1013,7 @@ await sdb.disk.put('posts/1.json', JSON.stringify(post))
 | `create_ds_manager`, `set_ds_manager`, `init_all` | using `sdb.disk` opens it (created the first time) |
 | `get_app`, `register_app` | datashell remembers and finds the disk keys |
 | writer access (`request…`, `wait…`, `start_writer_watcher`, `get_app_status`) | datashell lets a new device write by itself |
-| `set_events_drive`, `log_bootstrap_device` | built-in history and metadata |
+| `set_events_drive`, `log_bootstrap_device` | built-in history and app info |
 | `network()` | `app.net`, not designed yet |
 
 This is a direction, not a finished design. Each row still needs to be tried in code.
@@ -1026,25 +1026,25 @@ Datashell should also work **without the p2p part at all**: offline, on one devi
 - **Same API either way.** Apps use `sdb.disk`, `app.data` and `io` the same way, online or offline.
 - **The upgrade happens only when it's needed:** when you make a link others can sync from, or connect to other devices (even your own). Then datashell turns the app's data and messages into real p2p ones in the background.
 - **If the p2p part isn't installed,** that call throws an error.
-- **The p2p part can be installed later,** probably from the control room: datashell gets the p2p bundle, keeps it in the browser, and loads it. (Today datashell already loads the sys UI and app bundles at runtime, and the p2p part is its own file, `shim.bundle.js`.)
+- **The p2p part can be installed later,** probably from the control room: datashell gets the p2p code file, keeps it in the browser, and loads it. (Today datashell already loads the sys UI and app code files while it runs, and the p2p part is its own file, `shim.bundle.js`.)
 
 ### Questions and answers
 
 <details>
 <summary>1. What goes where?</summary>
 
-- **Every app has an audit log:** datashell records what the app does, and the control room can check it.
-- **Every app has some metadata,** also collected by datashell.
+- **Every app has a history (an audit log):** datashell records what the app does, and the control room can check it.
+- **Every app has some info about it,** also collected by datashell.
 - **Each module instance has its own `sdb.disk`,** a filesystem. For most apps that's all they need.
-- **Apps that need other kinds of data get `sdb.db`,** a corestore slice to make their own append-only logs.
+- **Apps that need other kinds of data get `sdb.db`,** their own storage space to make their own lists.
 
-Everything is built on append-only logs managed by corestore: `sdb.disk` uses 2 inside, the key-value store uses 1.
+Everything is built from lists you can only add to (append-only logs, managed by corestore): `sdb.disk` uses 2 inside, the store of names and values uses 1.
 </details>
 
 <details>
 <summary>2. How do STATE.js's nested <code>sdb</code> map to the vault?</summary>
 
-With nested corestore namespaces that copy the module tree. Each module gets its own slice inside its parent's slice, with its own `disk`:
+With storage spaces inside storage spaces (corestore namespaces) that copy the module tree. Each module gets its own space inside its parent's space, with its own `disk`:
 
 ```
 root store
@@ -1064,7 +1064,7 @@ const pageJS_module = app1_store.namespace('page.js')
 sdb.disk = hyperdrive(pageJS_module.namespace('disk'))
 ```
 
-Still to check: does a child module go under its parent's module slice (as in the tree), or under the parent's `disk`? And for syncing across your own devices, is it `hyperdrive` or `autodisk` (multi-writer)?
+Still to check: does a child module go under its parent's module space (as in the tree), or under the parent's `disk`? And for syncing across your own devices, is it `hyperdrive` or `autodisk` (which several devices can write to)?
 </details>
 
 <details>
