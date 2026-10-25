@@ -662,14 +662,15 @@ Still open in the latest code.
 **An idea for a simpler vault API, to discuss and change step by step.** Some parts can only be decided once we try them in code. Click a method to see an example and what it replaces today.
 
 <details>
-<summary>The rules we follow (6)</summary>
+<summary>The rules we follow (7)</summary>
 
 1. **A 5-year-old should understand the names.** Use everyday words: `devices`, `apps`, `list`, `rename`, `history`.
 2. **Three places, three keys.** Each place only gets what it needs, and nothing else.
 3. **Local first, p2p when needed.** Apps work offline with the same API. Datashell quietly makes things p2p only when you share, go online, or add a device.
 4. **Few methods, each doing more.** Group them by what you want to do, not by how the code works.
-5. **The inside stays hidden.** Apps never see keys, writers, stores or swarms unless they really need them.
-6. **STATE.js first.** Where STATE.js already has a good way of doing something, the vault follows it.
+5. **Each part only sees its own.** An app is a tree of modules and instances. Each one can create and change its own data structures, but never anyone else's. Some things stay internal, like the audit log, so everyone can check what each part did.
+6. **Start from STATE.js.** Where STATE.js already works well, the vault follows it. But STATE.js isn't finished either, so it can change too.
+7. **Every flow can resume.** The page can reload or the computer can crash at any step. Every flow (pairing, login, setup) must be able to continue where it stopped.
 </details>
 
 ### Three places
