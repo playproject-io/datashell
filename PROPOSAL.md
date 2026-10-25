@@ -1099,36 +1099,51 @@ Not yet. Before naming things, we first need to write down what each part does a
 
 ### A tiny story: Anna gets a new phone
 
-Anna loves reading news on her laptop. Today a shiny new phone arrives, and she wants her news on it too. No cables, no copying, no "please wait while we set things up". Just four little steps:
+Anna loves reading news on her laptop. Today a shiny new phone arrives, and she wants her news on it too. No cables, no copying, no "please wait while we set things up". Just a few little steps:
 
 ```mermaid
 sequenceDiagram
-  participant L as Anna's laptop
-  participant P as Anna's new phone
-  L->>L: "I want to add a device"
-  L-->>P: here is your invite
-  P->>P: "Hello! Can I join?"
-  P-->>L: my secret code is A1B2C3
-  L->>L: "A1B2C3, yes that's my phone"
-  P->>P: opens the news app, and her feed is already there
+  participant A as Anna
+  participant L as Laptop
+  participant P as New phone
+  A->>L: "I want to add a device"
+  L->>A: shows an invite
+  A->>P: types the invite
+  P->>L: connects
+  P->>A: shows a code, A1B2C3
+  A->>L: types A1B2C3
+  L->>P: yes, that's Anna's phone, the box syncs
+  P->>A: the news app opens, her posts are there
 ```
 
 <details>
-<summary>The same story in code (4 lines)</summary>
+<summary>The same story in code</summary>
 
 ```js
-// 1. On the laptop: "I want to add a device"
-const invite = await vault.devices.invite()
+// 1. On the laptop (control room): "I want to add a device"
+const invite = await sys.devices.invite()
 
-// 2. On the phone: Anna types the invite, and the phone shows a short code
-await datashell.start({ pair: invite.code, on_code: code => show(code) })   // shows "A1B2C3"
+// 2. On the phone (front door): Anna types the invite, and the phone shows a short code
+const phone = await env.pair({ invite: invite.code, on_code: code => show(code) })   // shows "A1B2C3"
 
 // 3. On the laptop: Anna types the code she sees on the phone
 await invite.accept('A1B2C3')
 
-// 4. On the phone, in the news app: her feed is just there
-const feed = await vault.list('feed')
+// 4. On the phone, inside the news app: her posts are just there
+const { sdb } = await get(sid)
+const posts = await sdb.disk.list('posts/')
 ```
 
-No keys, no writer requests, no setup. The phone can read **and** write her feed straight away. With the current code, the same thing needs more than 10 different methods, from `create_vault_invite` to `request_writer_access`.
+No keys, no writer requests, no setup. With the current code, the same thing needs more than 10 different methods, from `create_vault_invite` to `request_writer_access`.
+</details>
+
+<details>
+<summary>What happens behind the scenes</summary>
+
+1. **After `accept`,** the phone becomes part of Anna's box, and the box syncs to it.
+2. **When the news app opens on the phone,** each module instance asks for its `sdb.disk`. Datashell finds that disk's key in the box, so the phone opens **the same disk** as the laptop, not a new one.
+3. **The posts sync** from the laptop to the phone.
+4. **Datashell gives the phone write access** to the disk by itself, so it can write too.
+
+**And then:** a new post written on the phone shows up on the laptop. If the phone goes offline, she can still read and write; it syncs again later.
 </details>
