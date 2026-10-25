@@ -1019,15 +1019,83 @@ await sdb.disk.put('posts/1.json', JSON.stringify(post))
 This is a direction, not a finished design. Each row still needs to be tried in code.
 </details>
 
-### Open questions
+### Single player mode: local first
 
-1. **What goes where?** Small data (`data.put`), bigger data (`list`, `folder`, `table`), or STATE's `sdb.drive`?
-2. **STATE.js:** each component has its own nested `sdb` with its own `sdb.drive` (maybe renamed `sdb.disk`). How do those map to the vault? Either way, the app shouldn't be able to tell.
-3. **One disk per app, or one per component?** Waiting on Lupay.
-4. **net.js:** how does `vault.connect()` fit with net.js and `io`?
-5. **Local first:** where exactly does the upgrade to p2p happen (`sdb.drive`, `io`)?
-6. **Types:** `list`, `folder` and `table` stay built in. Can apps bring their own types later?
-7. **Names:** are `list`, `folder`, `table` and `connect` clear enough? Better ideas welcome.
+Datashell should also work **without the p2p part at all**: offline, on one device, with nothing to share. A calculator or a text editor might never need more.
+
+- **Same API either way.** Apps use `sdb.disk`, `app.data` and `io` the same way, online or offline.
+- **The upgrade happens only when it's needed:** when you make a link others can sync from, or connect to other devices (even your own). Then datashell turns the app's data and messages into real p2p ones in the background.
+- **If the p2p part isn't installed,** that call throws an error.
+- **The p2p part can be installed later,** probably from the control room: datashell gets the p2p bundle, keeps it in the browser, and loads it. (Today datashell already loads the sys UI and app bundles at runtime, and the p2p part is its own file, `shim.bundle.js`.)
+
+### Questions and answers
+
+<details>
+<summary>1. What goes where?</summary>
+
+- **Every app has an audit log:** datashell records what the app does, and the control room can check it.
+- **Every app has some metadata,** also collected by datashell.
+- **Each module instance has its own `sdb.disk`,** a filesystem. For most apps that's all they need.
+- **Apps that need other kinds of data get `sdb.db`,** a corestore slice to make their own append-only logs.
+
+Everything is built on append-only logs managed by corestore: `sdb.disk` uses 2 inside, the key-value store uses 1.
+</details>
+
+<details>
+<summary>2. How do STATE.js's nested <code>sdb</code> map to the vault?</summary>
+
+With nested corestore namespaces that copy the module tree. Each module gets its own slice inside its parent's slice, with its own `disk`:
+
+```
+root store
+└─ sys
+   ├─ app1
+   │  └─ page.js (module)
+   │     ├─ disk  →  sdb.disk
+   │     └─ p2p-news-app (child module)
+   │        └─ disk  →  sdb.disk
+   └─ app2
+```
+
+```js
+const sys_store = store.namespace('sys')
+const app1_store = sys_store.namespace('app1')
+const pageJS_module = app1_store.namespace('page.js')
+sdb.disk = hyperdrive(pageJS_module.namespace('disk'))
+```
+
+Still to check: does a child module go under its parent's module slice (as in the tree), or under the parent's `disk`? And for syncing across your own devices, is it `hyperdrive` or `autodisk` (multi-writer)?
+</details>
+
+<details>
+<summary>3. One disk per app, or one per component?</summary>
+
+One per app, per module **and** per instance, like the STATE.js news app: every instance gets a `sid` and its own `sdb.disk`.
+</details>
+
+<details>
+<summary>4. How does networking fit with net.js and <code>io</code>? (still open)</summary>
+
+Not answered yet. First compare what net.js does today with what the vault's networking (`network()`) does, then brainstorm.
+</details>
+
+<details>
+<summary>5. Where does the upgrade to p2p happen?</summary>
+
+See "Single player mode" above: only when an API really needs p2p (sharing a link, connecting to devices).
+</details>
+
+<details>
+<summary>6. Can apps bring their own types later?</summary>
+
+Yes, through `sdb.db`. Which basic types datashell offers itself still needs discussion.
+</details>
+
+<details>
+<summary>7. Are the new names clear?</summary>
+
+Not yet. Before naming things, we first need to write down what each part does and which p2p pieces are behind it (corestore, autobase, hyperdrive / autodisk, hyperbee, swarm). The names in this draft are placeholders.
+</details>
 
 ### A tiny story: Anna gets a new phone
 
