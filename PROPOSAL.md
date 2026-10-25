@@ -71,6 +71,19 @@ const my_vault = await vault.user
 </details>
 
 <details>
+<summary>Join with an invite: the new device's side of pairing</summary>
+
+The new device has no vault yet, so it joins from the env UI with the invite code from the existing device. It shows a 6-character code, the existing device types it in, and then the vault syncs.
+
+```js
+vault.authenticate({ username: 'pairing-user', invite_code, on_verification_code: code => show(code) })
+vault.on_vault_ready(() => show_app_picker())   // then complete_authentication() once an app is picked
+const my_vault = await vault.user
+```
+[source](https://github.com/af44n/p2p-news-app/blob/9df97736c4612ebd4ff19c6f5e8447a12e52bed2/lib/node_modules/identity/index.js#L171-L197)
+</details>
+
+<details>
 <summary><code>user</code>: a promise that gives you the vault once login is done</summary>
 
 It resolves to the vault object, and fails if login or pairing failed. It only resolves once, so a new login needs a page reload.
@@ -145,11 +158,14 @@ location.reload()
 
 ---
 
-## 2. Pairing *(sys UI only)*
+## 2. Pairing *(sys UI + env UI)*
 
-**Add a new device to your vault.** Steps: device A creates an invite → device B enters it → B shows a code → A types the code → B is added.
+**Add a new device to your vault.** Pairing has two sides:
 
-The methods below are device A's side, in the sys UI. Device B's side is in the env UI: it joins with `authenticate({ invite_code })` (see 1. Login).
+- **Existing device (sys UI):** adds a new device and shares an invite code. The methods below are this side.
+- **New device (env UI):** starts pairing with the invite code, see "Join with an invite" in 1. Login.
+
+Steps: device A creates an invite → device B enters it → B shows a code → A types the code → B is added.
 
 If pairing fails or is cancelled, device B deletes everything it had, so it can start fresh.
 
