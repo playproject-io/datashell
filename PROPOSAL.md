@@ -903,54 +903,74 @@ await sys.reset()
 
 ### C. App room *(app UI)*
 
-**An app only needs four things: small data, bigger data, its own history, and friends.**
+**An app gets two things:** `app`, its app control room (run by datashell), and for every module instance its own `sdb` (from STATE.js, as today).
 
 <details>
-<summary><code>vault.data.put / get / remove / watch</code>: small data, like settings</summary>
+<summary><code>app.data.put / get / del / on</code>: small data, like settings</summary>
 
 ```js
-await vault.data.put('theme', 'dark')
-const theme = await vault.data.get('theme')
-vault.data.watch('theme', value => render(value))
+await app.data.put('theme', 'dark')
+const theme = await app.data.get('theme')
+await app.data.del('theme')
+app.data.on('theme', value => render(value))
 ```
+The same names as Hyperbee, the key-value store the vault already uses. Whether small data belongs to the whole app or to each instance's `sdb` is still open.
+
 **Replaces:** `vault_put` · `vault_get` · `vault_del` · `vault_watch(key)` + a `for await` loop + `vault_get`.
 </details>
 
 <details>
-<summary><code>vault.list(name)</code> · <code>vault.folder(name)</code> · <code>vault.table(name)</code>: bigger data, asked for by its shape</summary>
+<summary><code>sdb.disk</code>: each instance's own files</summary>
 
 ```js
-const feed  = await vault.list('feed')      // a list of entries, like a timeline
-const files = await vault.folder('files')   // a folder of files
-const prefs = await vault.table('prefs')    // a key-value table
-await feed.add({ title: 'Hello' })
+const { sdb } = await get(sid)                       // STATE.js, as today
+await sdb.disk.put('posts/1.json', JSON.stringify(post))
+const file = await sdb.disk.get('posts/1.json')
+const posts = await sdb.disk.list('posts/')
 ```
-No setup. The first time you ask, it's created. On your other devices, the same name opens the same data. Writing from a new device just works.
+A filesystem for each module instance. It starts with the basics, roughly what `sdb.drive` already has, and later grows closer to Hyperdrive. The first time an instance uses it, it's created. On your other devices, the same instance opens the same files, and a new device can write too.
 
-**Replaces:** autobase / autodisk / autobee via `create_ds_manager()` + `set_ds_manager()` + `init_all()`. Hidden: `register_app()`, `get_app()`, `request_writer_access()`, `wait_for_writer_access()`, `start_writer_watcher()`, `get_app_status()`, `log_bootstrap_device()`, and `namespace`, `encoding`, `view_name`, `store`.
+**Replaces:** autodisk via `create_ds_manager()` + `set_ds_manager()` + `init_all()`. Datashell does the rest by itself:
+- `register_app()` / `get_app()`: remember the disk keys, so your other devices find the same disks
+- `request_writer_access()` / `wait_for_writer_access()` / `start_writer_watcher()` / `get_app_status()`: let a new device write
+- `log_bootstrap_device()`: record which device writes
+- `namespace`, `encoding`, `view_name`, `store`: storage details
 </details>
 
 <details>
-<summary><code>vault.history()</code>: the app's own history (built in)</summary>
+<summary><code>sdb.db</code>: build your own kind of data (advanced)</summary>
 
 ```js
-const entries = await vault.history()
+const log = sdb.db.get('my-log')   // a raw append-only log, only for this instance
 ```
-Every app gets one automatically. The app doesn't create it. It only shows **this app's** history, not the whole vault's (that one is in the control room).
+For apps that need something other than files. It's a corestore slice for this instance only, so it can't touch anyone else's data.
+
+**Replaces:** the app vault's `store` (a corestore namespace for the whole app) and the hard-coded structure types.
+</details>
+
+<details>
+<summary><code>app.history()</code>: the app's own history (built in)</summary>
+
+```js
+const entries = await app.history()
+```
+Every app gets one automatically. The app doesn't create it. It only shows **this app's** history, not the whole box's (that one is `sys.history()` in the control room).
 
 **Replaces:** `get_app_audit().read()` · `load_app_audit(key)` · `set_events_drive()` and the events folder the app makes itself.
 </details>
 
 <details>
-<summary><code>vault.connect(room)</code>: meet other people</summary>
+<summary><code>app.net</code>: talking to other people (not designed yet)</summary>
 
-```js
-const room = await vault.connect('news')
-room.on('friend', friend => say_hi(friend))
-```
-Your own devices are never part of this, and vault data is never shared here.
+A placeholder. Before designing it, we first need to list what p2p networking can do (Lupay's `network()`, swarms, topics, protocols) and how that fits net.js and `io`, which STATE.js apps already use.
 
 **Replaces:** `network()` + `swarm.join(topic)` with a 32-byte topic.
+</details>
+
+<details>
+<summary>Packages and many copies of the same app</summary>
+
+Every app is made from a **pkg** (package): a named disk with the app's code, with a `dat://` link behind the name. There can be **many copies of the same app**, each in its own container room and isolated from the others, e.g. `anna:p2p-news-app` and `bob:p2p-news-app`. How apps are installed and started from pkgs is still to work out.
 </details>
 
 <details>
@@ -982,10 +1002,21 @@ const { swarm } = await vault.network()
 **Idea:**
 
 ```js
-const feed  = await vault.list('feed')
-const files = await vault.folder('files')
-const room  = await vault.connect('news')
+const { sdb } = await get(sid)
+await sdb.disk.put('posts/1.json', JSON.stringify(post))
 ```
+
+**Where each part of the current code goes:**
+
+| Current code | Idea |
+|---|---|
+| `create_ds_manager`, `set_ds_manager`, `init_all` | using `sdb.disk` opens it (created the first time) |
+| `get_app`, `register_app` | datashell remembers and finds the disk keys |
+| writer access (`request…`, `wait…`, `start_writer_watcher`, `get_app_status`) | datashell lets a new device write by itself |
+| `set_events_drive`, `log_bootstrap_device` | built-in history and metadata |
+| `network()` | `app.net`, not designed yet |
+
+This is a direction, not a finished design. Each row still needs to be tried in code.
 </details>
 
 ### Open questions
