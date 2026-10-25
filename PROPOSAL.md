@@ -665,7 +665,7 @@ Still open in the latest code.
 <summary>The rules we follow (7)</summary>
 
 1. **A 5-year-old should understand the names.** Use everyday words: `devices`, `apps`, `list`, `rename`, `history`.
-2. **Three places, three keys.** Each place only gets what it needs, and nothing else.
+2. **Rooms inside rooms.** Each room only gets what it needs, and nothing else.
 3. **Local first, p2p when needed.** Apps work offline with the same API. Datashell quietly makes things p2p only when you share, go online, or add a device.
 4. **Few methods, each doing more.** Group them by what you want to do, not by how the code works.
 5. **Each part only sees its own.** An app is a tree of modules and instances. Each one can create and change its own data structures, but never anyone else's. Some things stay internal, like the audit log, so everyone can check what each part did.
@@ -673,21 +673,62 @@ Still open in the latest code.
 7. **Every flow can resume.** The page can reload or the computer can crash at any step. Every flow (pairing, login, setup) must be able to continue where it stopped.
 </details>
 
-### Three places
+### How it should look: rooms inside rooms
+
+- **Front door (env):** before anything exists. Make a new **box** (your own virtual device), pair with your other device, or load a box you already have. Later there can be several boxes or accounts, protected by a seed phrase or password.
+- **Control room (sys):** the admin room of your box, like a wallet. Your devices, apps and history.
+- **Container rooms:** one for every app that runs, and many can run side by side. Each one has two parts:
+  - **app control room:** the app's own private part, run by datashell: its history, its metadata, which devices may write.
+  - **app custom room:** the app itself.
+- **Inside the app:** the app is a tree of modules and instances (like the STATE.js news app). Each instance has its own `id`, `disk` (files) and `io` (talk to other parts).
+- **Rooms can nest:** a container room can hold the whole thing again: its own front door, control room and container rooms.
 
 ```mermaid
-flowchart LR
-  ENV["env UI<br/>the front door<br/>new, pair, restore"] -->|"opens"| SYS["sys UI<br/>the control room<br/>devices, apps"]
-  SYS -->|"starts"| APP["app UI<br/>one app's room<br/>data and friends"]
+flowchart TD
+  ENV["Front door<br/>env"] --> SYS["Control room<br/>sys"]
+  SYS --> C1
+  SYS --> C2
+  subgraph C1["Container room 1"]
+    AC1["app control room"]
+    AU1["app custom room"]
+  end
+  subgraph C2["Container room 2"]
+    AC2["app control room"]
+    AU2["app custom room"]
+  end
+  AU1 --> M1["module instances<br/>id, disk, io"]
+  AU2 --> X["can nest a whole<br/>front door + rooms"]
 ```
 
-| Place | Like… | What happens there | Gets |
+| Room | Like… | What happens there | Gets |
 |---|---|---|---|
-| **env UI** | a front door | make a new account, pair with your other device, or restore one | `datashell.start()` |
-| **sys UI** | a control room (like a wallet) | manage your devices, apps, relays and history | the full `vault` |
-| **app UI** | one room (like a dApp) | the app keeps its own data and talks to other people | a small `vault` |
+| **Front door** | a hypervisor or login screen | make, pair or load a box | `env` |
+| **Control room** | a wallet | manage devices, apps and history | `sys` |
+| **App control room** | the app's own settings, run by datashell | its history, metadata, who may write | `app` |
+| **App custom room** | the app itself | modules and instances doing the work | each instance's `sdb` (`id`, `disk`, `io`) |
 
-In the current code these are `vault` (before login), `vault.user` and the app vault.
+<details>
+<summary>What is built in, and what the app makes itself</summary>
+
+- **Built in, made by datashell:** every app gets an audit log (its history) and some metadata. The app doesn't create them, and the control room can look at them.
+- **Made by the app:** each instance has its own `sdb.disk`, a filesystem. If an app needs other kinds of data, it gets `sdb.db` to make its own (see open questions).
+</details>
+
+<details>
+<summary>Where today's 7 groups go</summary>
+
+| Today | Ideal room |
+|---|---|
+| 1. Login | front door |
+| 2. Pairing | front door (new device) + control room (existing device) |
+| 3. Devices | control room |
+| 4. Data | each instance's `sdb` |
+| 5. App structures | app control room (built in) + `sdb.disk` / `sdb.db` (the app's own) |
+| 6. Network | a `.net` part (see the control room) |
+| 7. Logs and debug | control room (whole box) + app control room (one app) |
+</details>
+
+In the current code these are `vault` (before login), `vault.user` and the app vault. Each instance's own `sdb` exists only in STATE.js, not in the vault yet.
 
 ### A. Front door *(env UI)*
 
