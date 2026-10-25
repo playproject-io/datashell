@@ -732,33 +732,74 @@ In the current code these are `vault` (before login), `vault.user` and the app v
 
 ### A. Front door *(env UI)*
 
-**One call opens your vault: new, paired, or restored.**
-
-<details>
-<summary><code>datashell.start({ name })</code>: open this device's account, or make a new one</summary>
+**The front door shows what you can do just by looking at it.** Each method is one flow. When a flow is done, it gives you `sys`, the control room of that box.
 
 ```js
-const vault = await datashell.start({ name: 'anna' })
+const datashell = window.datashell || require('datashell')
+const env = datashell()
+console.log(Object.keys(env))   // ['seed', 'pair', 'load', 'boxes']
 ```
+
+<details>
+<summary><code>env.seed({ name })</code>: make a new box</summary>
+
+```js
+const sys = await env.seed({ name: 'anna' })
+```
+**Flow:** make the box's keys → create its vault → save the box on this device → return `sys`.
+
+**If it stops halfway:** calling `env.seed()` again continues instead of making a second box.
+
 **Replaces:** `authenticate({ username })` + `await vault.user`. Hidden inside: `session_*`, `init_vault_structures`, `defer_resolve`.
 </details>
 
 <details>
-<summary><code>datashell.start({ pair, on_code })</code>: join the account on your other device</summary>
+<summary><code>env.pair({ invite, on_code })</code>: join a box from your other device</summary>
 
 ```js
-const vault = await datashell.start({ pair: invite_code, on_code: code => show(code) })
+const sys = await env.pair({ invite, on_code: code => show(code) })   // shows "A1B2C3"
 ```
-**Replaces:** `authenticate({ username: 'pairing-user', invite_code, on_verification_code })` + `on_vault_ready` + `complete_authentication()`.
+**Flow:**
+
+```mermaid
+sequenceDiagram
+  participant Y as You
+  participant N as New device
+  participant O as Your other device
+  Y->>N: types the invite
+  N->>O: connects
+  N->>Y: shows a code, e.g. A1B2C3
+  Y->>O: types the code
+  O->>N: accepts, the vault syncs
+  N->>N: the box is ready, returns sys
+```
+
+**If it stops halfway:** the invite is remembered, so calling `env.pair()` again after a reload continues.
+
+**Replaces:** `authenticate({ username: 'pairing-user', invite_code, on_verification_code })` + `on_vault_ready` + `complete_authentication()`. The resume part is `pending_invite_code` today.
 </details>
 
 <details>
-<summary><code>datashell.start({ restore })</code>: bring back your account from your words (later)</summary>
+<summary><code>env.load({ words })</code>: bring a box back from its words (later)</summary>
 
 ```js
-const vault = await datashell.start({ restore: words })
+const sys = await env.load({ words })
 ```
-**Replaces:** not built yet ("Load from mnemonic"). Later the front door could also offer `datashell.accounts()` to pick one of several accounts, with a password.
+**Flow:** type your words → find the box → sync it from your other devices → return `sys`.
+
+**Replaces:** not built yet ("Load from mnemonic"). This will follow the mnemonic recovery work, where only the public key stays on the device.
+</details>
+
+<details>
+<summary><code>env.boxes()</code>: the boxes on this device (later)</summary>
+
+```js
+const boxes = await env.boxes()
+const sys = await boxes[0].open({ password })
+```
+Like a hypervisor with virtual machines: each box is its own virtual device. You can only open, change or delete boxes you own.
+
+**Replaces:** nothing yet. Today there is one box per browser origin.
 </details>
 
 ### B. Control room *(sys UI)*
