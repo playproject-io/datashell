@@ -647,16 +647,6 @@ const bee = vault.get_vault_bee() // sys UI only
 
 ---
 
-## Bugs
-
-Still open in the latest code.
-
-1. **Lowercase verification codes fail.** The code is shown in uppercase (`A1B2C3`), but the web UI and the CLI don't uppercase what the user types, so `a1b2c3` is rejected with "code does not match". [web](https://github.com/af44n/p2p-news-app/blob/9df97736c4612ebd4ff19c6f5e8447a12e52bed2/lib/websys-ui.js#L718) · [cli](https://github.com/af44n/p2p-news-app/blob/9df97736c4612ebd4ff19c6f5e8447a12e52bed2/lib/clisys-ui.js#L309)
-2. **`get_current_relay()` can show the wrong relay.** It returns `config.relay || 'ws://localhost:8080'`, and `config.relay` is never set, so the Relays tab can show a different relay than the one in use. The connection itself is not affected. [source](https://github.com/af44n/p2p-news-app/blob/9df97736c4612ebd4ff19c6f5e8447a12e52bed2/lib/node_modules/identity/index.js#L438)
-3. **Logout also deletes the device's seedphrase.** `session_clear()` empties all of localStorage, including `vault-seedphrase`, so the next login creates a new device key. The vault data stays. To confirm with Lupay, since the mnemonic work will change this part. [source](https://github.com/af44n/p2p-news-app/blob/9df97736c4612ebd4ff19c6f5e8447a12e52bed2/lib/websys-ui.js#L415)
-
----
-
 ## Ideal API (draft)
 
 **An idea for a simpler vault API, to discuss and change step by step.** Some parts can only be decided once we try them in code. Click a method to see an example and what it replaces today.
