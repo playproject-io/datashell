@@ -807,88 +807,96 @@ Like a hypervisor with virtual machines: each box is its own virtual device. You
 **Everything about you and your devices.**
 
 <details>
-<summary><code>vault.devices.invite()</code>: let a new device join</summary>
+<summary><code>sys.devices.invite()</code>: let a new device join</summary>
 
 ```js
-const invite = await vault.devices.invite()   // invite.code: give this to the new device
+const invite = await sys.devices.invite()   // invite.code: give this to the new device
 await invite.accept('A1B2C3')                 // or invite.reject() / invite.cancel()
 ```
+**If the page reloads before `accept`:** `sys.devices.invites()` lists the open invites, so you can continue one.
+
 **Replaces:** `create_vault_invite()` + `setup_vault_pairing()` + `verify_vault_pairing()` / `deny_vault_pairing()` / `cancel_vault_invite()`. Hidden: `restore_pending_invites()`. `accept` also takes lowercase codes.
 </details>
 
 <details>
-<summary><code>vault.devices.list()</code>: see your devices</summary>
+<summary><code>sys.devices.list()</code>: see your devices</summary>
 
 ```js
-const devices = await vault.devices.list()
+const devices = await sys.devices.list()
 ```
 **Replaces:** `get_paired_devices()` · `get_device_name()`.
 </details>
 
 <details>
-<summary><code>vault.devices.rename(device, name)</code>: give a device a name</summary>
+<summary><code>sys.devices.rename(device, name)</code>: give a device a name</summary>
 
 ```js
-await vault.devices.rename(device, 'My Phone')
+await sys.devices.rename(device, 'My Phone')
 ```
 **Replaces:** `vault_put('paired_devices/…', { ...device, name })`.
 </details>
 
 <details>
-<summary><code>vault.devices.remove(device)</code>: take a device out</summary>
+<summary><code>sys.devices.remove(device)</code>: take a device out</summary>
 
 ```js
-await vault.devices.remove(device)
+await sys.devices.remove(device)
 ```
 **Replaces:** `remove_device(device)`. (`ping_liveness()` stays hidden too: it runs on its own at every login.)
 </details>
 
 <details>
-<summary><code>vault.apps.list()</code> · <code>open(id)</code> · <code>close()</code> · <code>reset(id)</code>: your apps and profiles</summary>
+<summary><code>sys.apps.list()</code> · <code>open(id)</code> · <code>close()</code> · <code>reset(id)</code>: your apps and profiles</summary>
 
 ```js
-const apps = await vault.apps.list()
-await vault.apps.open('anna:p2p-news-app')
+const apps = await sys.apps.list()
+await sys.apps.open('anna:p2p-news-app')
 ```
 **Replaces:** `list_apps()` · `session_set_joined_app(id)` + `complete_authentication()` · `session_set_joined_app('')` + reload · deleting the app's records by hand. Hidden: `cancel_app_pairing()`.
 </details>
 
 <details>
-<summary><code>vault.relays.list()</code> · <code>add(url)</code> · <code>remove(url)</code> · <code>use(url)</code>: which relay the browser uses</summary>
+<summary><code>sys.net</code>: everything about the network</summary>
 
 ```js
-await vault.relays.add('wss://my-relay.example')
-await vault.relays.use('wss://my-relay.example')
+const info = sys.net.status()                  // connections, peers
+await sys.net.relay('wss://my-relay.example')  // browser only: pick a relay
 ```
-**Replaces:** `vault_get/put('config/relays' …)` · `get_current_relay()`.
+Relays are only needed because browsers can't do real p2p. Native apps don't need them, so they stay out of the core API, as one browser-only option inside `.net`.
+
+**Replaces:** `get_network_diagnostics()` · `get_performance_samples()` · `vault_get/put('config/relays' …)` · `get_current_relay()`.
 </details>
 
 <details>
-<summary><code>vault.history()</code>: who did what, on which device</summary>
+<summary><code>sys.history()</code>: who did what, on which device</summary>
 
 ```js
-const entries = await vault.history()
+const entries = await sys.history()
 ```
 **Replaces:** `get_vault_audit().read()`.
 
-This is the **whole vault's** history. Apps have their own `vault.history()` with only **that app's** history (see the app room).
+This is the **whole vault's** history. Apps have their own `sys.history()` with only **that app's** history (see the app room).
 </details>
 
 <details>
-<summary><code>vault.on('change' | 'danger', cb)</code> · <code>vault.status()</code>: news about your vault</summary>
+<summary><code>sys.on(message => …)</code>: one handler for everything that happens</summary>
 
 ```js
-vault.on('danger', device => ask_to_remove(device))
-const info = vault.status()
+sys.on(message => {
+  if (message.type === 'danger') ask_to_remove(message.data.device)   // always handle this one
+  if (message.type === 'change') render()
+})
 ```
-**Replaces:** `on_update(cb)` (and it can be turned off again) · `on_malicious_device(cb)` · `get_network_diagnostics()` · `get_performance_samples()`.
+One handler instead of many, because some messages must always be handled (like `danger`, a device writing fake entries). Each message has a `type` and `data`.
+
+**Replaces:** `on_update(cb)` · `on_malicious_device(cb)` · `on_performance_sample(cb)`. (`on_vault_ready` is part of the front-door flows now.)
 </details>
 
 <details>
-<summary><code>vault.reset()</code>: delete everything on this device</summary>
+<summary><code>sys.reset()</code>: delete everything on this device</summary>
 
 ```js
-await vault.reset()
+await sys.reset()
 ```
 **Replaces:** `reset_all_data()`.
 </details>
