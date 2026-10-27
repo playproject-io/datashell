@@ -654,7 +654,7 @@ const bee = vault.get_vault_bee() // sys UI only
 <details>
 <summary>The rules we follow (7)</summary>
 
-1. **A 5-year-old should understand the names.** Use everyday words: `devices`, `apps`, `list`, `rename`, `history`.
+1. **A 5-year-old should understand the names.** Use everyday words: `pods`, `apps`, `list`, `rename`, `history`.
 2. **Rooms inside rooms.** Each room only gets what it needs, and nothing else.
 3. **Local first, p2p when needed.** Apps work offline with the same API. Datashell quietly makes things p2p only when you share, go online, or add a device.
 4. **Few methods, each doing more.** Group them by what you want to do, not by how the code works.
@@ -665,10 +665,14 @@ const bee = vault.get_vault_bee() // sys UI only
 
 ### How it should look: rooms inside rooms
 
-- **Front door (env):** before anything exists. Make a new **box** (your own virtual device), pair with your other device, or load a box you already have. Later there can be several boxes or accounts, protected by a seed phrase or password.
-- **Control room (sys):** the admin room of your box, like a wallet. Your devices, apps and history.
+- **Three words first:**
+  - a **box** is a pretend device: one website where datashell runs, like `https://foobar.com` (its origin). Two websites (`foobar.com` and `barbaz.com`) are two boxes that know nothing about each other.
+  - a **pod** is like a pretend computer inside that box (a virtual machine): one "you" that you pick and start.
+  - **sys** is the system inside a pod. It's **shared by all your paired pods**, so it's the same on your laptop and your phone, and so are your apps.
+- **Front door (box UI):** the box's start screen. Like a program that runs several pretend computers (a hypervisor), it lists the pods on this box: pick one and start it (with its name and maybe a password), or add a new pod. Picking a pod is like starting a different computer (Windows vs Linux), not like logging in as another person (Anna vs Ali).
+- **Control room (sys):** the admin room inside a pod, like a wallet. Your pods, apps and history.
 - **Container rooms:** one for every app that runs, and many can run side by side. Each one has two parts:
-  - **app control room:** the app's own private part, run by datashell: its history, info about the app, which devices may write.
+  - **app control room:** the app's own private part, run by datashell: its history, info about the app, which pods may write.
   - **app custom room:** the app itself.
 - **Inside the app:** the app is a tree of modules and instances (like the STATE.js news app). **Each module instance is a small room too,** with its own `id`, `disk` (files) and `io` (talk to other parts).
 - **Rooms go all the way down:** a module instance can hold a whole container room (an app shown inside another app), and even a whole new front door with its own control room and container rooms. As deep as you want.
@@ -725,8 +729,8 @@ You start an app that arranges other apps side by side on the screen (a tiling w
 
 | Room | Like… | What happens there | Gets |
 |---|---|---|---|
-| **Front door** | a login screen | make, pair or load a box | `env` |
-| **Control room** | a wallet | manage devices, apps and history | `sys` |
+| **Front door (box UI)** | a hypervisor: pick a pretend computer and start it | list, open or add a pod | `box` |
+| **Control room** | a wallet | manage your pods, apps and history | `sys` |
 | **App control room** | the app's own settings, run by datashell | its history, info about the app, who may write | nothing directly: the app sees it through `sdb` |
 | **App custom room** | the app itself | modules and instances doing the work | each instance's `sdb` (`id`, `disk`, `net`, `docs`, …) |
 
@@ -743,128 +747,135 @@ You start an app that arranges other apps side by side on the screen (a tiling w
 | Today | Ideal room |
 |---|---|
 | 1. Login | front door |
-| 2. Pairing | front door (new device) + control room (existing device) |
-| 3. Devices | control room |
+| 2. Pairing | front door: `box.pair()` (new pod) + control room: `sys.pods.add()` (your other pods) |
+| 3. Devices | control room: `sys.pods` |
 | 4. Data | each instance's `sdb` |
 | 5. App structures | app control room (built in) + `sdb.disk` / `sdb.db` (the app's own) |
 | 6. Network | a `.net` part (see the control room) |
-| 7. Logs and debug | control room (whole box) + app control room (one app) |
+| 7. Logs and debug | control room (all your pods) + app control room (one app) |
 </details>
 
 In the current code these are `vault` (before login), `vault.user` and the app vault. Each instance's own `sdb` exists only in STATE.js, not in the vault yet.
 
-### A. Front door *(env UI)*
+### A. Front door *(box UI)*
 
-**The front door shows what you can do just by looking at it.** Each method is one flow. When a flow is done, it gives you `sys`, the control room of that box.
+**The front door shows what you can do just by looking at it.** It lists the pods on this box, opens one, or adds a new one. When you open or add a pod, you get `sys`, its control room.
 
 ```js
 const datashell = window.datashell || require('datashell')
-const env = datashell()
-console.log(Object.keys(env))   // ['seed', 'pair', 'load', 'boxes']
+const box = datashell()
+console.log(Object.keys(box))   // ['pods', 'open', 'seed', 'pair', 'load']
 ```
+
+The front door can only **list, open and add** pods. Changing or deleting a pod happens from inside it, in the control room.
 
 <details>
-<summary><code>env.seed({ name })</code>: make a new box</summary>
+<summary><code>box.pods()</code> · <code>box.open(pod)</code>: pick a pod and start it</summary>
 
 ```js
-const sys = await env.seed({ name: 'anna' })
+const pods = await box.pods()
+const sys = await box.open(pods[0], { password })
 ```
-**Flow:** make the box's keys → create its vault → save the box on this device → return `sys`.
+Each pod is its own pretend computer. Starting a pod is like starting a different computer, not like logging in as another person.
 
-**If it stops halfway:** calling `env.seed()` again continues instead of making a second box.
+**Tabs:** every browser tab has its own box UI. With 3 tabs open on `https://foobar.com` (one box), each tab can open the same pod, or each a different pod.
 
-**Replaces:** `authenticate({ username })` + `await vault.user`. Hidden inside: `session_*`, `init_vault_structures`, `defer_resolve`.
+**Replaces:** nothing yet. Today there is one pod per browser origin, opened by `authenticate({ username })` + `await vault.user`.
 </details>
 
 <details>
-<summary><code>env.pair({ invite, on_code })</code>: join a box from your other device</summary>
+<summary><code>box.seed({ name })</code>: add a brand new pod</summary>
 
 ```js
-const sys = await env.pair({ invite, on_code: code => show(code) })   // shows "A1B2C3"
+const sys = await box.seed({ name: 'anna' })
+```
+**Flow:** make the keys → show your secret words once so you can write them down → keep the words and keys **only for a short moment, never saved** → save **only the public part of the key** (the public key) on this box → create the vault → return `sys`.
+
+**If it stops halfway:** calling `box.seed()` again continues instead of making a second pod.
+
+**Replaces:** `authenticate({ username })` + `await vault.user`. Hidden inside: `session_*`, `init_vault_structures`, `defer_resolve`. (Today the words are saved in the browser; that changes once restoring from your words is built.)
+</details>
+
+<details>
+<summary><code>box.pair({ invite, on_code })</code>: add a pod that joins your other pods</summary>
+
+```js
+const sys = await box.pair({ invite, on_code: code => show(code) })   // shows "A1B2C3"
 ```
 **Flow:**
 
 ```mermaid
 sequenceDiagram
   participant Y as You
-  participant N as New device
-  participant O as Your other device
+  participant N as This box
+  participant O as Your other pod
   Y->>N: types the invite
   N->>O: connects
   N->>Y: shows a code, e.g. A1B2C3
   Y->>O: types the code
-  O->>N: accepts, the vault syncs
-  N->>N: the box is ready, returns sys
+  O->>N: accepts, sys syncs
+  N->>N: the new pod is ready, returns sys
 ```
 
-**If it stops halfway:** the invite is remembered, so calling `env.pair()` again after a reload continues.
+**If it stops halfway:** the invite is remembered, so calling `box.pair()` again after a reload continues.
 
 **Replaces:** `authenticate({ username: 'pairing-user', invite_code, on_verification_code })` + `on_vault_ready` + `complete_authentication()`. The resume part is `pending_invite_code` today.
 </details>
 
 <details>
-<summary><code>env.load({ words })</code>: bring a box back from its words (later)</summary>
+<summary><code>box.load({ words })</code>: bring a pod back from its words (later)</summary>
 
 ```js
-const sys = await env.load({ words })
+const sys = await box.load({ words })
 ```
-**Flow:** type your words → find the box → sync it from your other devices → return `sys`.
+**Flow:** type your secret words → they're kept **only for a short moment, never saved** → find the pod → copy its data from your other pods → save only the public key → return `sys`.
 
-**Replaces:** not built yet ("Load from mnemonic"). This will follow the mnemonic recovery work, where only the public key stays on the device.
-</details>
-
-<details>
-<summary><code>env.boxes()</code>: the boxes on this device (later)</summary>
-
-```js
-const boxes = await env.boxes()
-const sys = await boxes[0].open({ password })
-```
-Like a computer that can run other computers inside it: each box is its own virtual device. You can only open, change or delete boxes you own.
-
-**Replaces:** nothing yet. Today there is one box per browser origin.
+**Replaces:** not built yet ("Load from mnemonic"). It comes with the work on restoring from your words.
 </details>
 
 ### B. Control room *(sys UI)*
 
-**Everything about you and your devices.** The parts marked *(backlog)* (`net`, `history`, `on`, `reset`) only get the bare minimum for now and may change later.
+**Everything about you and your pods.** The parts marked *(backlog)* (`net`, `history`, `on`, `reset`) only get the bare minimum for now and may change later.
 
 <details>
-<summary><code>sys.devices.invite()</code>: let a new device join</summary>
+<summary><code>sys.pods.add()</code>: let a new pod join (on another box)</summary>
 
 ```js
-const invite = await sys.devices.invite()   // invite.code: give this to the new device
-await invite.accept('A1B2C3')                 // or invite.reject() / invite.cancel()
+const invite = await sys.pods.add()   // invite.code: type this on the other box
+await invite.accept('A1B2C3')          // or invite.reject() / invite.cancel()
 ```
-**If the page reloads before `accept`:** `sys.devices.invites()` lists the open invites, so you can continue one.
+The other box just does `box.pair()` on its front door, so pairing doesn't need a "new side" and an "old side".
+
+**If the page reloads before `accept`:** `sys.pods.invites()` lists the open invites, so you can continue one.
 
 **Replaces:** `create_vault_invite()` + `setup_vault_pairing()` + `verify_vault_pairing()` / `deny_vault_pairing()` / `cancel_vault_invite()`. Hidden: `restore_pending_invites()`. `accept` also takes lowercase codes.
 </details>
 
 <details>
-<summary><code>sys.devices.list()</code>: see your devices</summary>
+<summary><code>sys.pods.list()</code>: see your pods</summary>
 
 ```js
-const devices = await sys.devices.list()
+const pods = await sys.pods.list()
 ```
 **Replaces:** `get_paired_devices()` · `get_device_name()`.
 </details>
 
 <details>
-<summary><code>sys.devices.rename(device, name)</code>: give a device a name</summary>
+<summary><code>sys.pods.rename(pod, name)</code>: give a pod a name</summary>
 
 ```js
-await sys.devices.rename(device, 'My Phone')
+await sys.pods.rename(pod, 'My Phone')
 ```
 **Replaces:** `vault_put('paired_devices/…', { ...device, name })`.
 </details>
 
 <details>
-<summary><code>sys.devices.remove(device)</code>: take a device out</summary>
+<summary><code>sys.pods.remove(pod)</code>: take a pod out</summary>
 
 ```js
-await sys.devices.remove(device)
+await sys.pods.remove(pod)
 ```
+This is also how you delete the pod you're in: from inside, never from the front door.
 **Replaces:** `remove_device(device)`. (`ping_liveness()` stays hidden too: it runs on its own at every login.)
 </details>
 
@@ -891,7 +902,7 @@ Relays are only needed because browsers can't do real p2p. Native apps don't nee
 </details>
 
 <details>
-<summary><code>sys.history()</code>: who did what, on which device <i>(backlog)</i></summary>
+<summary><code>sys.history()</code>: who did what, on which pod <i>(backlog)</i></summary>
 
 ```js
 const entries = await sys.history()
@@ -926,7 +937,7 @@ await sys.reset()
 
 ### C. App room *(app UI)*
 
-**An app only gets `sdb`.** There is no separate `app` object: every module and component instance gets its own `sdb` (from STATE.js, as today), even the app's root module. So **`sdb` is the app vault**: one small vault per module and instance, inside each other, connected by fallbacks / overrides and by messages.
+**An app only gets `sdb`.** There is no separate `app` object: every module and component instance gets its own `sdb` (from STATE.js, as today), even the app's root module. So **`sdb` is the app vault**: one small vault per module and instance, inside each other. They're connected by their default and changed settings (fallbacks / overrides) and by messages.
 
 Each `sdb` has its own `id`, `disk`, `net` and `docs`. The first step is a full list of everything `sdb`, net.js and DOCS.js can already do, and then adding what the p2p vault needs that `sdb` doesn't have yet. The parts below are a first idea.
 
@@ -956,7 +967,7 @@ const posts = await sdb.disk.list('posts/')
 A filesystem for each module instance. It starts with the basics, roughly what `sdb.drive` already has, and later grows into a full shared folder (like Hyperdrive). The first time an instance uses it, it's created. On your other devices, the same instance opens the same files, and a new device can write too.
 
 **Replaces:** autodisk via `create_ds_manager()` + `set_ds_manager()` + `init_all()`. Datashell does the rest by itself:
-- `register_app()` / `get_app()`: remember the disk keys, so your other devices find the same disks
+- `register_app()` / `get_app()`: remember the disk keys, so your other pods find the same disks
 - `request_writer_access()` / `wait_for_writer_access()` / `start_writer_watcher()` / `get_app_status()`: let a new device write
 - `log_bootstrap_device()`: record which device writes
 - `namespace`, `encoding`, `view_name`, `store`: storage details
@@ -979,7 +990,7 @@ For apps that need something other than files. It's this instance's own storage 
 ```js
 const entries = await sdb.history()
 ```
-Every app gets one automatically. The app doesn't create it. It only shows **this app's** history, not the whole box's (that one is `sys.history()` in the control room).
+Every app gets one automatically. The app doesn't create it. It only shows **this app's** history, not your whole system's (that one is `sys.history()` in the control room).
 
 **Replaces:** `get_app_audit().read()` · `load_app_audit(key)` · `set_events_drive()` and the events folder the app makes itself.
 </details>
@@ -1145,7 +1156,7 @@ sequenceDiagram
   P->>L: connects
   P->>A: shows a code, A1B2C3
   A->>L: types A1B2C3
-  L->>P: yes, that's Anna's phone, the box syncs
+  L->>P: yes, that's Anna's phone, sys syncs
   P->>A: the news app opens, her posts are there
 ```
 
@@ -1154,10 +1165,10 @@ sequenceDiagram
 
 ```js
 // 1. On the laptop (control room): "I want to add a device"
-const invite = await sys.devices.invite()
+const invite = await sys.pods.add()
 
-// 2. On the phone (front door): Anna types the invite, and the phone shows a short code
-const phone = await env.pair({ invite: invite.code, on_code: code => show(code) })   // shows "A1B2C3"
+// 2. On the phone (its front door): Anna types the invite, and the phone shows a short code
+const phone = await box.pair({ invite: invite.code, on_code: code => show(code) })   // shows "A1B2C3"
 
 // 3. On the laptop: Anna types the code she sees on the phone
 await invite.accept('A1B2C3')
@@ -1173,8 +1184,8 @@ No keys, no writer requests, no setup. With the current code, the same thing nee
 <details>
 <summary>What happens behind the scenes</summary>
 
-1. **After `accept`,** the phone becomes part of Anna's box, and the box syncs to it.
-2. **When the news app opens on the phone,** each module instance asks for its `sdb.disk`. Datashell finds that disk's key in the box, so the phone opens **the same disk** as the laptop, not a new one.
+1. **After `accept`,** the phone has a new pod that is paired with Anna's other pods, and sys syncs to it.
+2. **When the news app opens on the phone,** each module instance asks for its `sdb.disk`. Datashell finds that disk's key in sys, so the phone opens **the same disk** as the laptop, not a new one.
 3. **The posts sync** from the laptop to the phone.
 4. **Datashell gives the phone write access** to the disk by itself, so it can write too.
 
