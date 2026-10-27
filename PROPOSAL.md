@@ -671,12 +671,12 @@ const bee = vault.get_vault_bee() // sys UI only
   - **sys** is the system inside a pod. It's **shared by all your paired pods**, so it's the same on your laptop and your phone, and so are your apps.
 - **Front door (box UI):** the box's start screen. Like a program that runs several pretend computers (a hypervisor), it lists the pods on this box: pick one and start it (with its name and maybe a password), or add a new pod. Picking a pod is like starting a different computer (Windows vs Linux), not like logging in as another person (Anna vs Ali).
 - **Control room (sys):** the admin room inside a pod, like a wallet. Your pods, apps and history.
-- **Container rooms:** one for every app that runs, and many can run side by side. Each one has two parts:
+- **Container rooms:** one for every **task**, a running copy of an app. Many can run side by side, even 2 copies of the same app. Each one has two parts:
   - **app control room:** the app's own private part, run by datashell: its history, info about the app, which pods may write.
   - **app custom room:** the app itself.
 - **Inside the app:** the app is a tree of modules and instances (like the STATE.js news app). **Each module instance is a small room too,** with its own `id`, `disk` (files) and `io` (talk to other parts).
 - **Rooms go all the way down:** a module instance can hold a whole container room (an app shown inside another app), and even a whole new front door with its own control room and container rooms. As deep as you want.
-- **Rooms can sleep:** any app can be running or **asleep** (hibernated). A sleeping app keeps its data and wakes up when you open it again.
+- **Rooms can sleep:** any task can be running or **asleep** (hibernated). A sleeping task keeps its data and wakes up when you open it again.
 - **A room for developers:** quick_editor is our toolbox for developers (like the browser's devtools). Every room and every STATE.js feature should be easy to look at, check and change there, so it could grow into the control room for developers.
 
 ```
@@ -738,7 +738,7 @@ You start an app that arranges other apps side by side on the screen (a tiling w
 <summary>What is built in, and what the app makes itself</summary>
 
 - **Built in, made by datashell:** every app gets its own history (an audit log) and some info about it (metadata). The app doesn't create them, and the control room can look at them.
-- **Made by the app:** each instance has its own `sdb.disk`, a filesystem. If an app needs other kinds of data, it gets `sdb.db` to make its own (see open questions).
+- **Made by the app:** each instance has its own `sdb.disk`: its own folder on the task's app disk. If an app needs other kinds of data, it gets `sdb.db` to make its own (see open questions).
 </details>
 
 <details>
@@ -880,13 +880,29 @@ This is also how you delete the pod you're in: from inside, never from the front
 </details>
 
 <details>
-<summary><code>sys.apps.list()</code> · <code>open(id)</code> · <code>close()</code> · <code>reset(id)</code>: your apps and profiles</summary>
+<summary><code>sys.pkgs</code> · <code>sys.apps</code> · <code>sys.tasks</code>: packages, apps, and the apps that are running</summary>
+
+Three words, like on any computer:
+
+| Word | Means | Like… |
+|---|---|---|
+| **pkg** | a package: a named disk with an app's code, **or just data** (a `dat://` link behind the name) | a download or installer |
+| **app** | a pkg you can run: the apps you have, or saved to your list | "the text editor" |
+| **task** | one running copy of an app. It can sleep and wake up again | a window of the text editor |
+
+Opening the text editor twice gives **2 tasks of the same app**, not 2 apps.
 
 ```js
-const apps = await sys.apps.list()
-await sys.apps.open('anna:p2p-news-app')
+const apps = await sys.apps.list()               // what you can run
+const task = await sys.tasks.start(apps[0])      // run it: a new task
+await task.sleep()                               // pause it, keeps its data
+await task.wake()                                // and carry on
+const running = await sys.tasks.list()           // everything that's running or asleep
 ```
-**Replaces:** `list_apps()` · `session_set_joined_app(id)` + `complete_authentication()` · `session_set_joined_app('')` + reload · deleting the app's records by hand. Hidden: `cancel_app_pairing()`.
+
+A **bot** is a task that runs in the background without a window, and only on one pod at a time (see Lupay's `docs/datashell-vault-records.md`).
+
+**Replaces:** `list_apps()` · `session_set_joined_app(id)` + `complete_authentication()` · `session_set_joined_app('')` + reload · deleting the app's records by hand. Hidden: `cancel_app_pairing()`. Today each copy is a profile like `anna:p2p-news-app`.
 </details>
 
 <details>
@@ -964,7 +980,7 @@ await sdb.disk.put('posts/1.json', JSON.stringify(post))
 const file = await sdb.disk.get('posts/1.json')
 const posts = await sdb.disk.list('posts/')
 ```
-A filesystem for each module instance. It starts with the basics, roughly what `sdb.drive` already has, and later grows into a full shared folder (like Hyperdrive). The first time an instance uses it, it's created. On your other devices, the same instance opens the same files, and a new device can write too.
+Every task gets its own **app disk**. Each module instance gets **its own folder** on it (a "virtual disk") and only sees that folder. Two copies of the same app have two separate app disks. It starts with the basics, roughly what `sdb.drive` already has, and later grows into a full shared folder (like Hyperdrive). On your other pods, the same instance opens the same files, and can write too.
 
 **Replaces:** autodisk via `create_ds_manager()` + `set_ds_manager()` + `init_all()`. Datashell does the rest by itself:
 - `register_app()` / `get_app()`: remember the disk keys, so your other pods find the same disks
@@ -1014,7 +1030,7 @@ Every module and instance also gets its own docs from DOCS.js (Ahmad's work), so
 <details>
 <summary>Packages and many copies of the same app</summary>
 
-Every app is made from a **pkg** (package): a named disk with the app's code, with a `dat://` link behind the name. There can be **many copies of the same app**, each in its own container room and kept apart from the others, e.g. `anna:p2p-news-app` and `bob:p2p-news-app`. How apps are installed and started from pkgs is still to work out.
+Every app comes from a **pkg**. Not every pkg is an app: some only hold data. When you run an app, you get a **task**, and you can run the same app many times. Each task has its own container room and its own app disk, kept apart from the others. How apps are installed from pkgs is still to work out (Basim and Lupay are on it).
 </details>
 
 <details>
@@ -1079,7 +1095,7 @@ Datashell should also work **without the p2p part at all**: offline, on one devi
 
 - **Every app has a history (an audit log):** datashell records what the app does, and the control room can check it.
 - **Every app has some info about it,** also collected by datashell.
-- **Each module instance has its own `sdb.disk`,** a filesystem. For most apps that's all they need.
+- **Each module instance has its own `sdb.disk`:** its own folder on the task's app disk. For most apps that's all they need.
 - **Apps that need other kinds of data get `sdb.db`,** their own storage space to make their own lists.
 
 Everything is built from lists you can only add to (append-only logs, managed by corestore): `sdb.disk` uses 2 inside, the store of names and values uses 1.
@@ -1114,7 +1130,7 @@ Still to check: does a child module go under its parent's module space (as in th
 <details>
 <summary>3. One disk per app, or one per component?</summary>
 
-One per app, per module **and** per instance, like the STATE.js news app: every instance gets a `sid` and its own `sdb.disk`.
+**One app disk per task** (each running copy of an app), and **one folder on it per module and instance** (a "virtual disk"), like the STATE.js news app where every instance has a `sid` and its own `sdb.disk`. Two copies of the same app get two separate app disks.
 </details>
 
 <details>
