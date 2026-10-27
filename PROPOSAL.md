@@ -727,8 +727,8 @@ You start an app that arranges other apps side by side on the screen (a tiling w
 |---|---|---|---|
 | **Front door** | a login screen | make, pair or load a box | `env` |
 | **Control room** | a wallet | manage devices, apps and history | `sys` |
-| **App control room** | the app's own settings, run by datashell | its history, info about the app, who may write | `app` |
-| **App custom room** | the app itself | modules and instances doing the work | each instance's `sdb` (`id`, `disk`, `io`) |
+| **App control room** | the app's own settings, run by datashell | its history, info about the app, who may write | nothing directly: the app sees it through `sdb` |
+| **App custom room** | the app itself | modules and instances doing the work | each instance's `sdb` (`id`, `disk`, `net`, `docs`, …) |
 
 <details>
 <summary>What is built in, and what the app makes itself</summary>
@@ -827,7 +827,7 @@ Like a computer that can run other computers inside it: each box is its own virt
 
 ### B. Control room *(sys UI)*
 
-**Everything about you and your devices.**
+**Everything about you and your devices.** The parts marked *(backlog)* (`net`, `history`, `on`, `reset`) only get the bare minimum for now and may change later.
 
 <details>
 <summary><code>sys.devices.invite()</code>: let a new device join</summary>
@@ -879,7 +879,7 @@ await sys.apps.open('anna:p2p-news-app')
 </details>
 
 <details>
-<summary><code>sys.net</code>: everything about the network</summary>
+<summary><code>sys.net</code>: everything about the network <i>(backlog)</i></summary>
 
 ```js
 const info = sys.net.status()                  // connections, peers
@@ -891,18 +891,18 @@ Relays are only needed because browsers can't do real p2p. Native apps don't nee
 </details>
 
 <details>
-<summary><code>sys.history()</code>: who did what, on which device</summary>
+<summary><code>sys.history()</code>: who did what, on which device <i>(backlog)</i></summary>
 
 ```js
 const entries = await sys.history()
 ```
 **Replaces:** `get_vault_audit().read()`.
 
-This is the **whole vault's** history. Apps have their own `sys.history()` with only **that app's** history (see the app room).
+This is the **whole vault's** history. Apps have their own `sdb.history()` with only **that app's** history (see the app room).
 </details>
 
 <details>
-<summary><code>sys.on(message => …)</code>: one handler for everything that happens</summary>
+<summary><code>sys.on(message => …)</code>: one handler for everything that happens <i>(backlog)</i></summary>
 
 ```js
 sys.on(message => {
@@ -916,7 +916,7 @@ One handler instead of many, because some messages must always be handled (like 
 </details>
 
 <details>
-<summary><code>sys.reset()</code>: delete everything on this device</summary>
+<summary><code>sys.reset()</code>: delete everything on this device <i>(backlog)</i></summary>
 
 ```js
 await sys.reset()
@@ -926,18 +926,20 @@ await sys.reset()
 
 ### C. App room *(app UI)*
 
-**An app gets two things:** `app`, its app control room (run by datashell), and for every module instance its own `sdb` (from STATE.js, as today).
+**An app only gets `sdb`.** There is no separate `app` object: every module and component instance gets its own `sdb` (from STATE.js, as today), even the app's root module. So **`sdb` is the app vault**: one small vault per module and instance, inside each other, connected by fallbacks / overrides and by messages.
+
+Each `sdb` has its own `id`, `disk`, `net` and `docs`. The first step is a full list of everything `sdb`, net.js and DOCS.js can already do, and then adding what the p2p vault needs that `sdb` doesn't have yet. The parts below are a first idea.
 
 <details>
-<summary><code>app.data.put / get / del / on</code>: small data, like settings</summary>
+<summary><code>sdb.data.put / get / del / on</code>: small data, like settings</summary>
 
 ```js
-await app.data.put('theme', 'dark')
-const theme = await app.data.get('theme')
-await app.data.del('theme')
-app.data.on('theme', value => render(value))
+await sdb.data.put('theme', 'dark')
+const theme = await sdb.data.get('theme')
+await sdb.data.del('theme')
+sdb.data.on('theme', value => render(value))
 ```
-The same names the vault's own store of names and values already uses (Hyperbee). Whether small data belongs to the whole app or to each instance's `sdb` is still open.
+The same names the vault's own store of names and values already uses (Hyperbee). Each instance has its own small data.
 
 **Replaces:** `vault_put` · `vault_get` · `vault_del` · `vault_watch(key)` + a `for await` loop + `vault_get`.
 </details>
@@ -972,10 +974,10 @@ For apps that need something other than files. It's this instance's own storage 
 </details>
 
 <details>
-<summary><code>app.history()</code>: the app's own history (built in)</summary>
+<summary><code>sdb.history()</code>: the app's own history (built in)</summary>
 
 ```js
-const entries = await app.history()
+const entries = await sdb.history()
 ```
 Every app gets one automatically. The app doesn't create it. It only shows **this app's** history, not the whole box's (that one is `sys.history()` in the control room).
 
@@ -983,11 +985,19 @@ Every app gets one automatically. The app doesn't create it. It only shows **thi
 </details>
 
 <details>
-<summary><code>app.net</code>: talking to other people (not designed yet)</summary>
+<summary><code>sdb.net</code>: talking to other people and other parts (not designed yet)</summary>
 
 A placeholder. Before designing it, we first need to list what p2p networking can do (Lupay's `network()`, how peers find each other, how they talk) and how that fits net.js and `io`, which STATE.js apps already use.
 
 **Replaces:** `network()` + `swarm.join(topic)` with a 32-byte topic.
+</details>
+
+<details>
+<summary><code>sdb.docs</code>: each part explains itself (from DOCS.js)</summary>
+
+Every module and instance also gets its own docs from DOCS.js (Ahmad's work), so it can describe what it does. This still has to be listed in detail, together with the rest of `sdb`.
+
+**Replaces:** nothing in the vault yet.
 </details>
 
 <details>
@@ -1037,7 +1047,7 @@ await sdb.disk.put('posts/1.json', JSON.stringify(post))
 | `get_app`, `register_app` | datashell remembers and finds the disk keys |
 | writer access (`request…`, `wait…`, `start_writer_watcher`, `get_app_status`) | datashell lets a new device write by itself |
 | `set_events_drive`, `log_bootstrap_device` | built-in history and app info |
-| `network()` | `app.net`, not designed yet |
+| `network()` | `sdb.net`, not designed yet |
 
 This is a direction, not a finished design. Each row still needs to be tried in code.
 </details>
@@ -1046,7 +1056,7 @@ This is a direction, not a finished design. Each row still needs to be tried in 
 
 Datashell should also work **without the p2p part at all**: offline, on one device, with nothing to share. A calculator or a text editor might never need more.
 
-- **Same API either way.** Apps use `sdb.disk`, `app.data` and `io` the same way, online or offline.
+- **Same API either way.** Apps use `sdb.disk`, `sdb.data` and `sdb.net` the same way, online or offline.
 - **The upgrade happens only when it's needed:** when you make a link others can sync from, or connect to other devices (even your own). Then datashell turns the app's data and messages into real p2p ones in the background.
 - **If the p2p part isn't installed,** that call throws an error.
 - **The p2p part can be installed later,** probably from the control room: datashell gets the p2p code file, keeps it in the browser, and loads it. (Today datashell already loads the sys UI and app code files while it runs, and the p2p part is its own file, `shim.bundle.js`.)
