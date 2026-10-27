@@ -670,25 +670,58 @@ const bee = vault.get_vault_bee() // sys UI only
 - **Container rooms:** one for every app that runs, and many can run side by side. Each one has two parts:
   - **app control room:** the app's own private part, run by datashell: its history, info about the app, which devices may write.
   - **app custom room:** the app itself.
-- **Inside the app:** the app is a tree of modules and instances (like the STATE.js news app). Each instance has its own `id`, `disk` (files) and `io` (talk to other parts).
-- **Rooms can nest:** a container room can hold the whole thing again: its own front door, control room and container rooms.
+- **Inside the app:** the app is a tree of modules and instances (like the STATE.js news app). **Each module instance is a small room too,** with its own `id`, `disk` (files) and `io` (talk to other parts).
+- **Rooms go all the way down:** a module instance can hold a whole container room (an app shown inside another app), and even a whole new front door with its own control room and container rooms. As deep as you want.
+- **Rooms can sleep:** any app can be running or **asleep** (hibernated). A sleeping app keeps its data and wakes up when you open it again.
+- **A room for developers:** quick_editor is our toolbox for developers (like the browser's devtools). Every room and every STATE.js feature should be easy to look at, check and change there, so it could grow into the control room for developers.
+
+```
+front door
+control room
+container room 1
+  app control room 1
+  app custom room 1
+container room 2 (asleep)
+  app control room 2
+  app custom room 2
+…
+container room X
+  front door (inside)
+  control room
+  container room X1
+  container room X2
+  …
+```
 
 ```mermaid
 flowchart TD
-  ENV["Front door<br/>env"] --> SYS["Control room<br/>sys"]
-  SYS --> C1
-  SYS --> C2
+  FD["Front door"] --> CR["Control room"]
+  CR --> C1
+  CR --> C2
   subgraph C1["Container room 1"]
     AC1["app control room"]
-    AU1["app custom room"]
+    subgraph AU1["app custom room"]
+      M1["module instance<br/>a small room"] --> M2["module instance<br/>a small room"]
+    end
   end
-  subgraph C2["Container room 2"]
+  subgraph C2["Container room 2: asleep"]
     AC2["app control room"]
     AU2["app custom room"]
   end
-  AU1 --> M1["module instances<br/>id, disk, io"]
-  AU2 --> X["can nest a whole<br/>front door + rooms"]
+  M2 --> C3
+  subgraph C3["Container room: an app inside an app"]
+    AC3["app control room"]
+    AU3["app custom room"]
+  end
+  AU3 --> FD2["Front door, inside"] --> CR2["Control room"] --> MORE["more container rooms<br/>all the way down"]
+  style C2 stroke-dasharray: 5 5
 ```
+
+<details>
+<summary>Example: an app that runs other apps inside it</summary>
+
+You start an app that arranges other apps side by side on the screen (a tiling window manager). It has its own modules and components. One of those components shows a whole other app inside it, like a text editor, a music player or a game. That inner app gets **its own container room** (app control room + app custom room) inside the window manager's component, and it has its own modules and instances again. Some of those apps may be asleep until you open them.
+</details>
 
 | Room | Like… | What happens there | Gets |
 |---|---|---|---|
