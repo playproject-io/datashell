@@ -17,7 +17,7 @@ flowchart TD
 - **An app is a tree of modules.** A module can be used more than once, and each copy is an **instance** (`page>app>btn:0`).
 - **The tree has tricky cases, not all handled yet:** the same module in many places (same or different versions), parts that don't use `sdb` at all, a module used many times inside one module, and a whole app or pod inside an app.
 - **Each module says what it starts with** (its **fallback**). **Any module above it** (not only its parent) can **change what it starts with** (an **override**).
-- **Each module and instance gets an `sdb`:** its own small folder of files (the **drive**), and it's told when they change.
+- **Each module and instance gets an `sdb`** with a **drive**: it works like a disk of its own, and it's told when files change.
 - **The root module** (usually `page`) has extra **admin** powers: switch themes, add, export and import data.
 - **Everything is saved in the browser** (`localStorage`). Nothing is p2p yet.
 - **Parts talk with messages** through **net.js**.
@@ -32,13 +32,13 @@ flowchart TD
 | say "I am a module" | `const statedb = STATE(__filename)` |
 | (root only) open the database | `statedb.admin()` |
 | give your defaults, get your tools | `const { sdb, get } = statedb(fallback_module)` |
-| open one copy | `const { id, sdb } = await get(sid)` |
+| give a new instance its own `sdb` (its own drive, separate from the module's) | `const { id, sdb } = await get(sid)` |
 | be told when your files change | `await sdb.watch(onbatch)` |
 | read / write / list your files | `sdb.drive.get(path)` · `put(path, content)` · `list(folder)` · `has(path)` |
 | peek into a child's files (read only) | `sdb.get(sid)` |
 | (root only) switch, add, export, import | `sdb.admin.swtch()` · `register()` · `export_db()` · `import_db()` … |
 
-The drive has only these 4 methods. There's no delete.
+The drive has only these 4 methods (no delete yet). That's on purpose: more methods come later, like a hyperdrive or autodisk, once the nested `sdb`, the devkit and overrides all work.
 
 ## net.js
 
