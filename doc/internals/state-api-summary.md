@@ -22,7 +22,7 @@ flowchart TD
   - **The goal:** see the whole app's state (every module, also apps and pods inside it), pick one part like in the browser's dev tools, and run admin commands on it. What STATE.js needs to change comes from this goal.
 - **Everything is saved in the browser** (`localStorage`) today. Later it will all be saved in the p2p vault.
 - **Parts talk with messages** through **net.js**. Later it needs to support every way the p2p parts can talk.
-- **DOCS.js** gives parts a **help mode**: clicking shows what a button does instead of doing it.
+- **DOCS.js** lets a part list what it can do (its API), with help texts shown in the devkit.
 
 ---
 
@@ -56,8 +56,12 @@ The drive has only these 4 methods (no delete yet). That's on purpose: more meth
 
 ## DOCS.js
 
-- **A help-mode switch.** Each component lists its actions with a help text, and wraps its click handlers. In help mode, a click shows the help text.
-- **It doesn't use STATE at all** (no `sdb`, `drive` or `io`), and it isn't part of datashell yet.
+- **A component lists its actions: that's its official API.** Anything a user can do with mouse or keyboard can also be done in code.
+- **Each action can have a help text.** The devkit (the quick editor) shows it, and in help mode a click shows the help text instead of doing the action.
+- **It doesn't use STATE yet** (no `sdb`, `drive` or `io`), and it isn't part of datashell yet. Later it becomes one more part of what `get(sid)` gives, next to `sdb`.
+- It's still work in progress.
+
+`sdb` may one day be renamed to `node` (`node.disk`, …). For now it stays `sdb`.
 
 ---
 
