@@ -106,16 +106,14 @@ Each one gets a test first. Some may be old code that nothing uses anymore.
 
 **Good news:** `statedb.admin()` already accepts a different database instead of the browser one. That was one reason for it. What the p2p vault really needs will show once we join them.
 
-## Ideas for the first STATE.js pull request
+## What comes next
 
-1. Fix the crash bugs and remove the debug leftovers (bugs 1, 2, 5).
-2. Add `sdb.drive.del(path)`.
-3. Fix the read/write mix-up and only clear STATE's own data (bugs 3, 4).
-4. Write down what a custom database must provide, so a vault-backed one can be written next.
-5. Then the first p2p step: a database that saves into the vault instead of the browser.
-
-Steps 1–3 fix STATE.js as it is. Steps 4–5 start connecting it to the p2p vault.
+1. **A live dev setup:** edit STATE.js while the examples and a real app (the p2p news app) run.
+2. **Examples, then tests:** examples that use every STATE.js feature, turned into small tests (a few helper functions, like Lupay's).
+3. **Fix only what a test shows is broken.** Old code nothing uses gets removed.
+4. **Make the API and the code cleaner,** with good comments.
+5. **Then the p2p vault:** write down what a custom database must provide, and make one that saves into the vault.
 
 ---
 
-**Not checked:** nothing was run, everything comes from reading the code. Ahmad's "state-architecture" page (with its verification matrix) is still missing.
+**Checked by running too:** my news app runs on today's STATE.js, but the examples break ([what breaks](https://github.com/nna0921/datashell/blob/dev-setup/doc/internals/examples-status.md)). Ahmad's "state-architecture" page (with its verification matrix) is still missing.
