@@ -14,8 +14,9 @@ flowchart TD
   PAGE -.->|"admin powers"| ADMIN["switch themes,<br/>export, import"]
 ```
 
-- **An app is a family tree of modules.** A module can be used more than once, and each copy is an **instance** (`page>app>btn:0`).
-- **Each module says what it starts with** (its **fallback**). A parent can **change what its child starts with** (an **override**).
+- **An app is a tree of modules.** A module can be used more than once, and each copy is an **instance** (`page>app>btn:0`).
+- **The tree has tricky cases, not all handled yet:** the same module in many places (same or different versions), parts that don't use `sdb` at all, a module used many times inside one module, and a whole app or pod inside an app.
+- **Each module says what it starts with** (its **fallback**). **Any module above it** (not only its parent) can **change what it starts with** (an **override**).
 - **Each module and instance gets an `sdb`:** its own small folder of files (the **drive**), and it's told when they change.
 - **The root module** (usually `page`) has extra **admin** powers: switch themes, add, export and import data.
 - **Everything is saved in the browser** (`localStorage`). Nothing is p2p yet.
