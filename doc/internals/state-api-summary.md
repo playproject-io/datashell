@@ -83,11 +83,13 @@ Each one gets a test first. Some may be old code that nothing uses anymore.
 4. **Not a bug:** a new version clears all of `localStorage` ([L780-L783](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L780-L783)). That's on purpose, so old data doesn't break the page. Moving old data over comes later.
 5. **Leftovers, not a bug:** a `LESEZEICHEN:` label and a `debugger` ([L254](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L254), [L260](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L260)). They mark an unfinished fix for example 2.
 6. **net.js:** a message sent through a middle part may fail. The middle part passes it on ([L37](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/net.js#L37)), but the last part only accepts senders it's directly connected to ([L38](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/net.js#L38)).
-7. **DOCS.js:** it throws when a component has no actions ([get_actions](https://github.com/ddroid/ui-components/blob/e2879e95dbb5ba8a29851422a85c8d37ad1f881b/src/node_modules/DOCS/index.js#L45)). Serapath: a bug, it should return an empty list `[]`, like `get_toc` does. Ahmad may know more.
+7. **DOCS.js:** it throws when a component has no actions ([get_actions](https://github.com/ddroid/ui-components/blob/e2879e95dbb5ba8a29851422a85c8d37ad1f881b/src/node_modules/DOCS/index.js#L45)). Serapath: a bug, it should return an empty list `[]`, like `get_toc` does. (waiting on ahmad).
 
 ---
 
 ## What the vault gives vs. what `sdb` has
+
+**To discuss before it becomes a plan.** Not every vault feature belongs in `sdb`, the part apps use. Some only help STATE.js inside, and some are for other parts: net.js, DOCS.js, or things not built yet (the sys UI, the box UI). Today we only have apps using STATE.js and the admin part (`sdb.admin()`), with no apps or pods inside apps yet.
 
 | The app vault gives | `sdb` today | Missing |
 |---|---|---|
@@ -102,7 +104,7 @@ Each one gets a test first. Some may be old code that nothing uses anymore.
 | networking (`network`) | partly: net.js | only inside one page |
 | docs | ❌ | DOCS isn't part of `sdb` |
 
-**Good news:** `statedb.admin()` already accepts a different database instead of the browser one. So the storage can be swapped without changing every module.
+**Good news:** `statedb.admin()` already accepts a different database instead of the browser one. That was one reason for it. What the p2p vault really needs will show once we join them.
 
 ## Ideas for the first STATE.js pull request
 
