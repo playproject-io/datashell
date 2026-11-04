@@ -19,7 +19,8 @@ flowchart TD
 - **Each module says what it starts with** (its **fallback**). **Any module above it** (not only its parent) can **change what it starts with** (an **override**).
 - **Each module and instance gets an `sdb`** with a **drive**: it works like a disk of its own, and it's told when files change.
 - **The root module** (usually `page`) has extra **admin** powers: switch themes, add, export and import data.
-- **Everything is saved in the browser** (`localStorage`). Nothing is p2p yet.
+  - **The goal:** see the whole app's state (every module, also apps and pods inside it), pick one part like in the browser's dev tools, and run admin commands on it. What STATE.js needs to change comes from this goal.
+- **Everything is saved in the browser** (`localStorage`) today. Later it will all be saved in the p2p vault.
 - **Parts talk with messages** through **net.js**.
 - **DOCS.js** gives parts a **help mode**: clicking shows what a button does instead of doing it.
 
