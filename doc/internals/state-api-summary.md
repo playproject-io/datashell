@@ -21,7 +21,7 @@ flowchart TD
 - **The root module** (usually `page`) has extra **admin** powers: switch themes, add, export and import data.
   - **The goal:** see the whole app's state (every module, also apps and pods inside it), pick one part like in the browser's dev tools, and run admin commands on it. What STATE.js needs to change comes from this goal.
 - **Everything is saved in the browser** (`localStorage`) today. Later it will all be saved in the p2p vault.
-- **Parts talk with messages** through **net.js**.
+- **Parts talk with messages** through **net.js**. Later it needs to support every way the p2p parts can talk.
 - **DOCS.js** gives parts a **help mode**: clicking shows what a button does instead of doing it.
 
 ---
@@ -44,10 +44,15 @@ The drive has only these 4 methods (no delete yet). That's on purpose: more meth
 ## net.js
 
 - **Each part gets `net(id)` → `{ io, _ }`.** A parent invites a child (`io.invite`), the child accepts (`io.accept`), then each sends with `_[name](type, data, refs)`.
-- **A message looks like** `{ head: [from, to, number], refs, type, data, meta }`. A reply points back with `refs: { cause: msg.head }`.
-- **There's also an `io.js`** that STATE gives out. It's a different thing with the same name.
-- **Ahmad's newer net.js** only adds one line (no two connections with the same name).
-- **The news app's own copy (`net_helper`) is different:** it sends `(type, refs, data)` instead of `(type, data, refs)`. Switching it to datashell's net.js as it is would mix up message contents.
+- **A message looks like** `{ head: [by, to, mid], refs, type, data, meta }`:
+  - `head`: who sent it (`by`), who gets it (`to`), and a message number (`mid`). Together they never repeat, in any message, anywhere.
+  - `refs`: points to other messages' heads. The main one is `refs.cause`, the message that caused this one (`refs: { cause: msg.head }`).
+  - `type` is a text. `data` can be anything, depending on the `type`.
+  - `meta` has at least `time` (when it was made) and `stack` (where in the code it was made).
+- **`io.js`** (which STATE also gives out) is old and will be replaced by net.js.
+- **net.js will still change.** `invite` / `accept` will likely stay, but later it also needs to send streams of data and more p2p kinds of messages, when we join it with the p2p vault.
+- **Ahmad's newer net.js** adds one check: two connections can't have the same name (it throws). Worth adding.
+- **The news app's own copy (`net_helper`) sends `(type, refs, data)`**, and datashell's net.js sends `(type, data, refs)`. The plan: switch everything to `(type, refs, data)`.
 
 ## DOCS.js
 
