@@ -73,15 +73,17 @@ The drive has only these 4 methods (no delete yet). That's on purpose: more meth
 
 ---
 
-## Bugs found (checked in the code)
+## Possible bugs (found by reading the code)
 
-1. **3 admin methods crash:** `unregister`, `import_db` and `import_root` call functions they can't reach ([L1146](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L1146), [L1163](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L1163), [L1169](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L1169)).
-2. **A typo (`${subi,d}`) turns an error message into a crash** ([L1279](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L1279)).
-3. **After switching themes, the drive reads one dataset but writes another.**
-4. **A new version clears all of `localStorage`,** not only STATE's own data ([L780-L783](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L780-L783)).
-5. **Debug leftovers:** a `LESEZEICHEN:` label and a `debugger` ([L254](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L254), [L260](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L260)).
-6. **net.js:** messages passed through more than one hop always fail.
-7. **DOCS.js:** it throws when a component has no actions.
+Each one gets a test first. Some may be old code that nothing uses anymore.
+
+1. **3 admin methods crash:** `unregister`, `import_db` and `import_root` call functions they can't reach ([L1146](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L1146), [L1163](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L1163), [L1169](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L1169)). Maybe old code.
+2. **A typo (`${subi,d}`) turns an error message into a crash** ([L1279](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L1279)). Maybe old code too.
+3. **After switching themes, the drive may read one dataset but write another:** `drive.get` looks in `node.inputs` ([L995](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L995)), `drive.put` looks in `node.drive` ([L1020](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L1020)).
+4. **Not a bug:** a new version clears all of `localStorage` ([L780-L783](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L780-L783)). That's on purpose, so old data doesn't break the page. Moving old data over comes later.
+5. **Leftovers, not a bug:** a `LESEZEICHEN:` label and a `debugger` ([L254](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L254), [L260](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/STATE.js#L260)). They mark an unfinished fix for example 2.
+6. **net.js:** a message sent through a middle part may fail. The middle part passes it on ([L37](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/net.js#L37)), but the last part only accepts senders it's directly connected to ([L38](https://github.com/playproject-io/datashell/blob/7976541ff36f2b7b1c237873aae4104d8f079d1e/lib/node_modules/net.js#L38)).
+7. **DOCS.js:** it throws when a component has no actions ([get_actions](https://github.com/ddroid/ui-components/blob/e2879e95dbb5ba8a29851422a85c8d37ad1f881b/src/node_modules/DOCS/index.js#L45)). Serapath: a bug, it should return an empty list `[]`, like `get_toc` does. Ahmad may know more.
 
 ---
 
